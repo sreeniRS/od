@@ -14,3 +14,7 @@ faiss-cpu
 sentence_transformers
 cfenv
 langchain_openai
+
+#fastapi
+fastapi==0.115.2
+uvicorn-0.32.0
