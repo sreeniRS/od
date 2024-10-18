@@ -11,6 +11,9 @@ from src.utils.utils import handle_tool_error
 class State(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
 
+class OutputState(TypedDict):
+    odata_query: str
+
 class Assistant:
     def __init__(self, runnable: Runnable):
         self.runnable = runnable

@@ -2,6 +2,7 @@ import spacy
 from langchain.tools import tool
 from typing import Dict, List, Optional
 
+
 nlp = spacy.load("en_core_web_sm")
 
 NL_TO_OLQUERY_MAP: Dict[str, str] = {
