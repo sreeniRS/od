@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from src.utils.appconfig import AppConfig
 from src.utils.azureai import AzureAI
 from src.tools.nl_to_odata_tool import nl_to_odata
-from src.agents.nl2odata_agent import create_graph
+from src.aiagents.nl2odata_agent import create_graph
 from src.llm.llm import get_llm
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import AIMessage
