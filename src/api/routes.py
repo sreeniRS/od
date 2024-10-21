@@ -1,14 +1,15 @@
+import xmltodict, json, requests
+from requests.auth import HTTPBasicAuth
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import AIMessage
+
 from src.utils.appconfig import AppConfig
 from src.utils.azureai import AzureAI
 from src.tools.nl_to_odata_tool import nl_to_odata
 from src.aiagents.nl2odata_agent import create_graph
 from src.llm.llm import get_llm
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.messages import AIMessage
-import requests
-from requests.auth import HTTPBasicAuth
 
 
 
@@ -45,7 +46,7 @@ def convert_to_odata(query: Query):
             The Odata Service which we are using has the following fields. Select the most appropriate fields for the query that you are passing
             in accordance with the user requirement.
             The Fields are:
-                1) ORDER_NO - This is the order no which documents the purchase.
+                1) ORDER_NO - This is the order no or order number which documents the purchase.
                 2) ORDER_NO_ITEM - This is the line item which is part of the order
                 3) TSF_ENTITY_ID - This is a unique id for the purchasing organization
                 4) PURCH_GRP - This is the purchase group or category for the service
@@ -53,6 +54,11 @@ def convert_to_odata(query: Query):
                 6) CREAT_DATE - This is the date of creation for that particular item
                 7) MATERIAL - This is the material used for the Line item
                 8) STORE_NAME - This is the plant where the material is manufactured
+                
+                **Additonally pass the field value within '' in the query. For date variables pass it in YY-MM-DD format
+                Example 1:
+                User input: Filter out where order number is equal to 450000000
+                Output: $filter ORDER_NO eq '45000000'
             ''',
         ),
         ("placeholder", "{messages}"),
@@ -80,10 +86,11 @@ def convert_to_odata(query: Query):
         print(extracted_part)
     else:
         print("No valid content found between newlines")
-    api_url = endpoint +'/'+ lines[3]
-    call_odata_query(api_url)
-
-    return {"odata_query": lines[3]}
+    endpoint = 'http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata/sap/ZSB_PO_GRN/ZC_GRN_PO_DET?'
+    api_url = endpoint + lines[3]
+    response = call_odata_query(api_url)
+    print(response)
+    return response
 
 def call_odata_query(endpoint: str):
 
@@ -93,4 +100,20 @@ def call_odata_query(endpoint: str):
     # Make the request
     response = requests.get(endpoint, auth=HTTPBasicAuth(username, password))
     print(response.status_code)
-    print(response.json())
+
+
+    if response.status_code == 200:
+        # Convert XML to Python dictionary
+        try:
+            xml_data = xmltodict.parse(response.text)
+            
+            # Convert the dictionary to a JSON string
+            json_data = json.dumps(xml_data, indent=4)
+            
+            # Print or work with the JSON data
+            return json_data
+        except Exception as e:
+            print("Error parsing XML:", str(e))
+    else:
+        print(f"Error: Received response with status code {response.status_code}")
+
