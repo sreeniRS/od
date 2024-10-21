@@ -56,8 +56,8 @@ def construct_odata_query(select_part: List[str], filter_part: List[str], orderb
     
     return odata_query
 
-@tool
-def nl_to_odata(query: str) -> str:
+#@tool
+#def nl_to_odata(query: str) -> str:
     """
     Convert a natural language query to an OData query.
 
@@ -71,6 +71,44 @@ def nl_to_odata(query: str) -> str:
         nl_to_odata("find products where price is less than 50")
         -> "$select=products&$filter=price lt 50"
     """
-    parsed_query = parse_natural_language(query)
-    odata_query = construct_odata_query(parsed_query["select"], parsed_query["filter"], parsed_query["orderby"])
-    return odata_query
+#    parsed_query = parse_natural_language(query)
+#    odata_query = construct_odata_query(parsed_query["select"], parsed_query["filter"], parsed_query["orderby"])
+#    return odata_query
+
+
+def extract_query_components(query: str) -> Dict:
+    """
+    GPT-4 will analyze the query to extract:
+    - Fields for selection/grouping
+    - Filter conditions
+    - Aggregation operations
+    - Time periods
+    Returns a dictionary with these components
+    """
+    # GPT-4 will implement this logic
+    return {
+        "select": [],
+        "filter": [],
+        "groupby": [],
+        "aggregate": []
+    }
+
+def construct_odata_query_2(components: Dict) -> str:
+    """Constructs OData query from components"""
+    query_parts = []
+    
+    if components.get("filter") and components.get("groupby"):
+        filters = " and ".join(components["filter"])
+        groups = ",".join(components["groupby"])
+        aggregates = ",".join(components["aggregate"])
+        
+        query_parts.append(f"$apply=filter({filters})")
+        query_parts.append(f"groupby(({groups}),aggregate({aggregates}))")
+    
+    return "/".join(query_parts) + "&sap-statistics=true"
+
+@tool
+def nl_to_odata(query: str) -> str:
+    """Convert natural language to OData query using GPT-4's understanding"""
+    components = extract_query_components(query)
+    return construct_odata_query_2(components)

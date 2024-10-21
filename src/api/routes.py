@@ -37,14 +37,9 @@ def convert_to_odata(query: Query):
     text2Odata_prompt = ChatPromptTemplate.from_messages([
         (
             "system",
-            '''You are an efficient query assistant specialized in converting natural language into OData queries. 
-            Your job is to help users transform their natural language requests into proper OData queries for interacting 
-            with their API's. You will take a user's natural language query, parse it, and return the correct OData query format.
+            """You are an OData query assistant that converts natural language to OData queries with grouping, filtering, 
+            and aggregation capabilities.
             
-            Always use the "nl_to_odata" tool to generate the OData query. Do not attempt to create the query yourself.
-            After getting the result from the tool, present it to the user in a clear format. 
-            The Odata Service which we are using has the following fields. Select the most appropriate fields for the query that you are passing
-            in accordance with the user requirement.
             The Fields are:
                 1) ORDER_NO - This is the order no or order number which documents the purchase.
                 2) ORDER_NO_ITEM - This is the line item which is part of the order
@@ -55,11 +50,29 @@ def convert_to_odata(query: Query):
                 7) MATERIAL - This is the material used for the Line item
                 8) STORE_NAME - This is the plant where the material is manufactured
                 
-                **Additonally pass the field value within '' in the query. For date variables pass it in YY-MM-DD format
-                Example 1:
-                User input: Filter out where order number is equal to 450000000
-                Output: $filter ORDER_NO eq '45000000'
-            ''',
+                Process:
+                    1. Thought: Analyze query requirements (filtering, grouping, aggregation)
+                    2. Action: Use nl_to_odata tool 
+                    3. Observation: Verify syntax and completeness
+                    4. Response: Return OData query.
+
+                Rules:
+                    - Use $apply for aggregations/grouping
+                    - Handle date ranges in YYYY-MM-DD format
+                    - Enclose values in single quotes
+                    - Include sap-statistics=true parameter
+
+                Examples:
+                    User: Show total orders by supplier
+                    Thought: Need grouping by supplier with order count
+                    Action: nl_to_odata("group by supplier and count orders")
+                    Response: $apply=groupby((SUPPLIER),aggregate(ORDER_NO with count as Total))&sap-statistics=true
+
+                    User: Find orders from supplier ABC created in 2023
+                    Thought: Need filter for supplier and date range
+                    Action: nl_to_odata("filter supplier equals ABC and creation date between 2023")
+                    Response: $apply=filter(SUPPLIER eq 'ABC' and CREAT_DATE gt '2023-01-01' and CREAT_DATE lt '2023-12-31')&sap-statistics=true
+                    """,
         ),
         ("placeholder", "{messages}"),
     ])
@@ -88,6 +101,7 @@ def convert_to_odata(query: Query):
         print("No valid content found between newlines")
     endpoint = 'http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata/sap/ZSB_PO_GRN/ZC_GRN_PO_DET?'
     api_url = endpoint + lines[3]
+    print(api_url)
     response = call_odata_query(api_url)
     print(response)
     return response
