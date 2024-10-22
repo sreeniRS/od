@@ -45,7 +45,7 @@ def create_graph(assistant_runnable, tools):
     builder = StateGraph(State)
     builder.add_node("Text2Odata", Assistant(assistant_runnable))
     builder.add_node("tools", create_tool_node_with_fallback(tools))
-
+    
     builder.add_edge(START, "Text2Odata")
     builder.add_conditional_edges("Text2Odata", tools_condition)
     builder.add_edge("tools", "Text2Odata")

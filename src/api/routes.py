@@ -66,12 +66,12 @@ def convert_to_odata(query: Query):
                     User: Show total orders by supplier
                     Thought: Need grouping by supplier with order count
                     Action: nl_to_odata("group by supplier and count orders")
-                    Response: $apply=groupby((SUPPLIER),aggregate(ORDER_NO with count as Total))&sap-statistics=true
+                    Response: $apply=groupby((SUPPLIER),aggregate(ORDER_NO with count as Total))?sap-statistics=true
 
                     User: Find orders from supplier ABC created in 2023
                     Thought: Need filter for supplier and date range
                     Action: nl_to_odata("filter supplier equals ABC and creation date between 2023")
-                    Response: $apply=filter(SUPPLIER eq 'ABC' and CREAT_DATE gt '2023-01-01' and CREAT_DATE lt '2023-12-31')&sap-statistics=true
+                    Response: $apply=filter(SUPPLIER eq 'ABC' and CREAT_DATE gt '2023-01-01' and CREAT_DATE lt '2023-12-31')?sap-statistics=true
                     """,
         ),
         ("placeholder", "{messages}"),
@@ -99,10 +99,14 @@ def convert_to_odata(query: Query):
         print(extracted_part)
     else:
         print("No valid content found between newlines")
+    
     endpoint = 'http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata/sap/ZSB_PO_GRN/ZC_GRN_PO_DET?'
     api_url = endpoint + lines[3]
+    
     print(api_url)
+    
     response = call_odata_query(api_url)
+    
     print(response)
     return response
 
