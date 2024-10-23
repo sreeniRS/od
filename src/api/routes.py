@@ -1,16 +1,17 @@
-import requests
+import requests, datetime
 from requests.auth import HTTPBasicAuth
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response  # Import the Response class
 from pydantic import BaseModel
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from typing import List, Tuple, Any, Dict, Optional
+from langchain_core.prompts import MessagesPlaceholder
 
-from src.utils.appconfig import AppConfig
-from src.utils.azureai import AzureAI
 from src.tools.nl_to_odata_tool import nl_to_odata
 from src.aiagents.nl2odata_agent import create_graph
 from src.llm.llm import get_llm
+import pandas as pd
 
 
 router = APIRouter()
@@ -122,3 +123,104 @@ def call_odata_query(endpoint: str):
     else:
         print(f"Error: Received response with status code {response.status_code}")
         raise HTTPException(status_code=response.status_code, detail="Error fetching OData")
+
+class ConversationManager:
+    def __init__(self, max_history: int = 3):
+        self.conversation_history: List[Tuple[str, str]] = []
+        self.max_history = max_history
+        self.dataframe_storage: Dict[str, pd.DataFrame] = {}
+        
+    def store_dataframe(self, df: pd.DataFrame, name: Optional[str] = None) -> str:
+        """
+        Store a DataFrame with a unique identifier or custom name.
+        Returns the storage key.
+        """
+        if name is None:
+            name = f"df_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        self.dataframe_storage[name] = df
+        return name
+    
+    def get_dataframe(self, name: str) -> Optional[pd.DataFrame]:
+        """Retrieve a stored DataFrame by its name."""
+        return self.dataframe_storage.get(name)
+    
+    def list_stored_dataframes(self) -> List[str]:
+        """List all stored DataFrame identifiers."""
+        return list(self.dataframe_storage.keys())
+    
+    def add_message(self, role: str, content: str):
+        """Add a message to conversation history and maintain max history length."""
+        self.conversation_history.append((role, content))
+        if len(self.conversation_history) > self.max_history:
+            self.conversation_history = self.conversation_history[-self.max_history:]
+    
+    def convert_to_messages(self) -> List[Any]:
+        """Convert conversation history to LangChain message objects."""
+        message_objects = []
+        for role, content in self.conversation_history:
+            if role == "user":
+                message_objects.append(HumanMessage(content=content))
+            elif role == "assistant":
+                message_objects.append(AIMessage(content=content))
+        return message_objects
+    
+    def format_dataframe_info(self, df: pd.DataFrame) -> str:
+        """Format DataFrame information for the prompt."""
+        info = []
+        info.append(f"Shape: {df.shape[0]} rows × {df.shape[1]} columns")
+        info.append(f"Columns: {', '.join(df.columns.tolist())}")
+        
+        # Add sample data
+        info.append("\nSample Data (first 5 rows):")
+        info.append(df.head().to_string())
+        
+        return "\n".join(info)
+
+def insights_generation(prompt: str, df: pd.DataFrame, conversation_manager: Optional[ConversationManager] = None) -> str:
+    """
+    Generate insights using the conversation manager to handle DataFrame storage and conversation history.
+    """
+    # Initialize conversation manager if not provided
+    if conversation_manager is None:
+        conversation_manager = ConversationManager()
+    
+    try:
+        # Store DataFrame if it's new
+        df_key = conversation_manager.store_dataframe(df)
+        
+        # Format DataFrame information
+        formatted_data = conversation_manager.format_dataframe_info(df)
+        
+        # Create user message
+        user_message = f"{prompt}\nDataFrame '{df_key}':\n{formatted_data}"
+        conversation_manager.add_message("user", user_message)
+        
+        # Create prompt template
+        prompt_template = ChatPromptTemplate.from_messages([
+            SystemMessage(content=(
+                "You are a helpful assistant who answers user queries based on the provided data. "
+                "Provide insights if asked. You have access to the full DataFrame in storage."
+            )),
+            MessagesPlaceholder(variable_name="history"),
+            ("human", "{prompt}\n{data}")
+        ])
+        
+        # Format the prompt with variables
+        formatted_prompt = prompt_template.format_messages(
+            history=conversation_manager.convert_to_messages(),
+            prompt=prompt,
+            data=formatted_data
+        )
+        
+        # Get LLM response
+        llm = get_llm()  # Assuming this function exists
+        ai_msg = llm.invoke(formatted_prompt)
+        
+        # Add response to conversation history
+        conversation_manager.add_message("assistant", ai_msg.content)
+        
+        return ai_msg.content
+        
+    except Exception as e:
+        return f"Failed to generate insights: {str(e)}"

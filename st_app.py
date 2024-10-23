@@ -1,11 +1,10 @@
 import streamlit as st
 import pandas as pd
 import xml.etree.ElementTree as ET
-import requests
-from pydantic import BaseModel
-from src.api.routes import convert_to_odata, Query  # Adjust import based on your structure
-from datetime import datetime
+from src.api.routes import convert_to_odata, insights_generation, ConversationManager, Query  # Adjust import based on your structure
 
+if 'data' not in st.session_state:
+    st.session_state['data'] = None
 
 def get_response(query_input: str):
     try:
@@ -96,13 +95,13 @@ st.markdown("""
 # Header section with title and description
 col1, col2 = st.columns([6,1])
 with col1:
-    st.title("🔍 Smart QueryOData Assistant")
+    st.title("Smart QueryOData Assistant")
     st.markdown("""
         Introducing our AI-based application QueryOData that simplifies data access by transforming natural language queries into OData queries.
     """)
 
 # Creating tabs for different functionalities
-tab1, tab2 = st.tabs(["Query Point", "Query History"])
+tab1, tab2, tab3 = st.tabs(["Query Point", "Insights", "Query History"])
 
 with tab1:
     # Query input section
@@ -117,16 +116,16 @@ with tab1:
 
     col1, col2 = st.columns([1,1])
     with col1:
-        submit_button = st.button("📤 Execute Query", use_container_width=True)
+        submit_button = st.button("Execute Query", use_container_width=True)
     with col2:
-        clear_button = st.button("🗑️ Clear", use_container_width=True)
+        clear_button = st.button("Clear", use_container_width=True)
 
     if submit_button:
         if not query_input:
             st.error("⚠️ Please enter a query before submitting.")
         else:
             # Show a spinner while processing
-            with st.spinner("🔍Processing query..."):
+            with st.spinner("Processing query..."):
                 try:
                     # Get the XML response as a string
                     xml_data = get_response(query_input)
@@ -137,7 +136,8 @@ with tab1:
                         if dataframe is not None and not dataframe.empty:
                             # Success message
                             st.success("✅ Query executed successfully!")
-                            
+                            st.session_state['last_dataframe'] = dataframe
+                            st.write("✅ Stored the new dataframe into memory!")
                             # Display metrics
                             col1, col2 = st.columns(2)
                             with col1:
@@ -156,7 +156,7 @@ with tab1:
                             # Download button for the results
                             csv = dataframe.to_csv(index=False)
                             st.download_button(
-                                label="📥 Download Results as CSV",
+                                label="Download Results as CSV",
                                 data=csv,
                                 file_name="query_results.csv",
                                 mime="text/csv",
@@ -169,6 +169,36 @@ with tab1:
                     st.exception(e)  # This will show the full error trace in a collapsible section
 
 with tab2:
+    st.subheader("AI Insights")
+
+    # Input field for the AI prompt
+    ai_prompt = st.text_area(
+        "Ask the AI for insights about the data:",
+        value="",
+        height=80,
+        placeholder="Example: What trends can you identify from this data?",
+        help="Enter your question or prompt for the AI here."
+    )
+
+    manager = ConversationManager(max_history=3)
+    # Button to submit the AI prompt
+    if st.button("Get AI Insights"):
+        if not ai_prompt:
+            st.error("⚠️ Please enter a prompt before submitting.")
+        else:
+            # Assuming 'last_dataframe' is available in session state
+            if 'last_dataframe' in st.session_state and st.session_state['last_dataframe'] is not None:
+                # Show a spinner while processing
+                with st.spinner("🧠 Asking AI for insights..."):
+                    ai_response = insights_generation(prompt=ai_prompt, df= st.session_state['last_dataframe'], conversation_manager= manager)
+
+                    # Display AI insights
+                    st.subheader("AI Insights")
+                    st.write(ai_response)
+            else:
+                st.warning("No data available. Please submit a query first.")
+
+with tab3:
     st.subheader("Recent Queries")
     # Here you could implement query history functionality
     st.info("Query history feature coming soon! This will show your recent queries and their results.")

@@ -7,9 +7,15 @@ config = AppConfig()
 azure_ai = AzureAI(config)
 
 llm = None
-
+embedding = None
 def get_llm():
     global llm
     if llm is None:
         llm = azure_ai.get_client()
-    return llm 
+    return llm
+
+def get_embedding():
+    global embedding
+    if embedding is None:
+        embedding = azure_ai.get_embedding_client()
+    return embedding
