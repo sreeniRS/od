@@ -105,7 +105,7 @@ def construct_odata_query_2(components: Dict) -> str:
         query_parts.append(f"$apply=filter({filters})")
         query_parts.append(f"groupby(({groups}),aggregate({aggregates}))")
     
-    return "/".join(query_parts) + "?sap-statistics=true"
+    return "/".join(query_parts)
 
 @tool
 def nl_to_odata(query: str) -> str:

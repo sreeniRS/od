@@ -60,13 +60,12 @@ def convert_to_odata(query: Query):
                     - Use $apply for aggregations/grouping
                     - Handle date ranges in YYYY-MM-DD format
                     - Enclose values in single quotes
-                    - Include sap-statistics=true parameter
 
                 Examples:
                     User: Show total orders by supplier
                     Thought: Need grouping by supplier with order count
                     Action: nl_to_odata("group by supplier and count orders")
-                    Response: $apply=groupby((SUPPLIER),aggregate(ORDER_NO with count as Total))?sap-statistics=true
+                    Response: $apply=groupby((SUPPLIER),aggregate(ORDER_NO with count as Total))
 
                     User: Find orders from supplier ABC created in 2023
                     Thought: Need filter for supplier and date range

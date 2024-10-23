@@ -10,7 +10,8 @@ def get_response(query_input: str):
         query = Query(text=query_input)
         # Call the FastAPI endpoint to get the XML response
         xml_response = convert_to_odata(query)
-        return xml_response.text  # Return the raw XML response text
+        print(type(xml_response.body))
+        return xml_response.body  # Return the raw XML response text
     except Exception as e:
         print(f"An error occurred: {e}")
         st.error("Failed to fetch the response from the server.")
