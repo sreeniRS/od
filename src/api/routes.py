@@ -1,6 +1,7 @@
-import xmltodict, json, requests
+import requests
 from requests.auth import HTTPBasicAuth
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response  # Import the Response class
 from pydantic import BaseModel
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import AIMessage
@@ -10,7 +11,6 @@ from src.utils.azureai import AzureAI
 from src.tools.nl_to_odata_tool import nl_to_odata
 from src.aiagents.nl2odata_agent import create_graph
 from src.llm.llm import get_llm
-
 
 
 router = APIRouter()
@@ -108,10 +108,9 @@ def convert_to_odata(query: Query):
     response = call_odata_query(api_url)
     
     print(response)
-    return response
+    return Response(content=response, media_type="application/xml")  # Return raw XML with proper content type
 
 def call_odata_query(endpoint: str):
-
     # Basic authentication credentials
     username = 'DEV_100'
     password = 'Nestle1330$'
@@ -119,19 +118,8 @@ def call_odata_query(endpoint: str):
     response = requests.get(endpoint, auth=HTTPBasicAuth(username, password))
     print(response.status_code)
 
-
     if response.status_code == 200:
-        # Convert XML to Python dictionary
-        try:
-            xml_data = xmltodict.parse(response.text)
-            
-            # Convert the dictionary to a JSON string
-            json_data = json.dumps(xml_data, indent=4)
-            
-            # Print or work with the JSON data
-            return json_data
-        except Exception as e:
-            print("Error parsing XML:", str(e))
+        return response.text  # Return the raw XML response text
     else:
         print(f"Error: Received response with status code {response.status_code}")
-
+        raise HTTPException(status_code=response.status_code, detail="Error fetching OData")
