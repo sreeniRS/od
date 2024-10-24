@@ -186,36 +186,42 @@ with tab2:
     )
     manager = ConversationManager(max_history=3)
     # Button to submit the AI prompt
-if st.button("Get AI Insights"):
-    if not ai_prompt:
-        st.error("⚠️ Please enter a prompt before submitting.")
-    else:
-        st.session_state['query_history'].append(ai_prompt)
-        # Assuming 'last_dataframe' is available in session state
-        if 'last_dataframe' in st.session_state and st.session_state['last_dataframe'] is not None:
-            # Show a spinner while processing
-            with st.spinner("🧠 Asking AI for insights..."):
-                ai_response = insights_generation(prompt=ai_prompt, df=st.session_state['last_dataframe'], conversation_manager=manager)
-
-                # Display AI insights
-                st.subheader("AI Insights")
-
-                # Show reasoning and code under a collapsible expander
-                if ai_response["reasoning"] is not None:
-                    with st.expander("Reasoning (click to expand)"):
-                        st.write(ai_response["reasoning"])
-
-                if ai_response["code"] is not None:
-                    with st.expander("Code (click to expand)"):
-                        st.code(ai_response["code"])
-
-                # Show the output on a single line
-                if ai_response["output"] is not None:
-                    st.write("### Result")
-                    st.write(ai_response["output"])
-
+    if st.button("Get AI Insights"):
+        if not ai_prompt:
+            st.error("⚠️ Please enter a prompt before submitting.")
         else:
-            st.warning("No data available. Please submit a query first.")
+            st.session_state['query_history'].append(ai_prompt)
+            # Assuming 'last_dataframe' is available in session state
+            if 'last_dataframe' in st.session_state and st.session_state['last_dataframe'] is not None:
+                # Show a spinner while processing
+                with st.spinner("🧠 Asking AI for insights..."):
+                    
+                    ai_response = insights_generation(prompt=ai_prompt, df=st.session_state['last_dataframe'], conversation_manager=manager)
+                    # Display AI insights with improved layout
+                    st.subheader("AI Insights")
+                    # Check if there's reasoning and code to display
+                    if ai_response.get("reasoning") or ai_response.get("code") or ai_response.get("output"):
+                    # Create a card-style container for the insights
+                        with st.container():
+                        # Show reasoning in an expandable section if it exists
+                            if ai_response.get("reasoning"):
+                                with st.expander("Reasoning (click to expand)", expanded=False):
+                                    st.write(ai_response.get("reasoning"))
+
+                            # Show code in an expandable section if it exists
+                            if ai_response.get("code"):
+                                with st.expander("Code (click to expand)", expanded=False):
+                                    st.code(ai_response.get("code"))
+
+                            # Show the output in a prominent section
+                            if ai_response.get("output"):
+                                st.markdown("### Result", unsafe_allow_html=True)  # Add a header for the result
+                                st.success(ai_response.get("output"))  # Display output in a success message style
+
+                        # Handle the case where no insights are available
+                    else:
+                        st.warning("No insights were generated. Please check your input or try again.")
+
 with tab3:
     if 'last_dataframe' in st.session_state and st.session_state['last_dataframe'] is not None:
         st.subheader("Chart")

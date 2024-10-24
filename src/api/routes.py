@@ -14,7 +14,6 @@ import json
 from src.tools.nl_to_odata_tool import nl_to_odata
 from src.aiagents.nl2odata_agent import create_graph
 from src.llm.llm import get_llm
-from schema.prompt_output_schema import Output
 import pandas as pd
 
 
@@ -188,56 +187,65 @@ class ConversationManager:
 
 
 def insights_generation(prompt: str, df: pd.DataFrame, conversation_manager: Optional[ConversationManager] = None) -> dict:
-    """
-    Generate insights using the conversation manager to handle DataFrame storage and conversation history.
-    """
-    # Initialize conversation manager if not provided
     if conversation_manager is None:
         conversation_manager = ConversationManager()
     
     try:
-        # Store DataFrame if it's new
         df_key = conversation_manager.store_dataframe(df)
-        
-        # Format DataFrame information
         formatted_data = conversation_manager.format_dataframe_info(df)
-        
-        # Create user message
         user_message = f"{prompt}\nDataFrame '{df_key}':\n{formatted_data}"
         conversation_manager.add_message("user", user_message)
-        
-        # Create prompt template
+
         prompt_template = ChatPromptTemplate.from_messages([
             SystemMessage(content=(
                 "You are a helpful assistant who answers user queries based on the provided data. "
-                "Provide insights if asked. You have access to the full DataFrame in storage."
+                "Provide insights if asked. You have access to the full DataFrame in storage. "
+                "Please return your response as a JSON string with 'reasoning', 'code', and 'output' keys. "
+                "All three keys 'reasoning', 'code' and 'output' are to be populated with string values unless specified."
+                "Print the output in a human readable manner, not the direct code output."
+                "Most importantly, only return the json string. Nothing else."
             )),
             MessagesPlaceholder(variable_name="history"),
             ("human", "{prompt}\n{data}")
         ])
-        
-        # Format the prompt with variables
+
         formatted_prompt = prompt_template.format_messages(
             history=conversation_manager.convert_to_messages(),
             prompt=prompt,
             data=formatted_data
         )
 
-        # Use the JsonOutputParser with the Output schema
-        parser = JsonOutputParser(Output)
-        
-        # Get LLM response
         llm = get_llm()  # Assuming this function exists
-        ai_msg = formatted_prompt | llm | parser     
+        ai_msg = llm(formatted_prompt)
 
-        # Serialize the AI response as a JSON string before storing it
-        json_content = ai_msg.dict()  # Convert to dict if using Pydantic model
-        conversation_manager.add_message("assistant", json.dumps(json_content, indent=2))
-        
-        # Return the parsed output as a dictionary (JSON object)
-        return json_content
-        
+        # Debugging: print the full AI message
+        print(f"AI Message: {ai_msg}")
+
+        # Access and clean message content
+        message_content = ai_msg.content.strip()
+        print(f"Raw AI Message Content: '{message_content}'")  # Debug print
+
+        if not message_content:
+            raise ValueError("Received empty response from the AI model.")
+
+        # Clean the output to remove markdown formatting
+        message_content = message_content.replace("```json", "").replace("```", "").strip()
+
+        # Parse the JSON string
+        try:
+            parsed_output = json.loads(message_content)
+        except json.JSONDecodeError as e:
+            print(f"JSON decoding error: {e} | Content: {message_content}")
+            return {"reasoning": "Invalid JSON response", "code": "400", "output": None}
+
+        conversation_manager.add_message("assistant", message_content)
+
+        return parsed_output
     except Exception as e:
-        error_output = Output(reason=str(e), code="500", output=None)
-        return error_output.dict()  # Return error object as a dictionary
+        print(f"An exception occurred: {e}")
+        return {"reasoning": str(e), "code": "500", "output": None}
+
+
+
+
 
