@@ -166,14 +166,19 @@ class ConversationManager:
         return message_objects
     
     def format_dataframe_info(self, df: pd.DataFrame) -> str:
-        """Format DataFrame information for the prompt."""
+        """Format DataFrame with a row limit to avoid overloading the LLM context."""
         info = []
         info.append(f"Shape: {df.shape[0]} rows × {df.shape[1]} columns")
         info.append(f"Columns: {', '.join(df.columns.tolist())}")
         
-        # Add sample data
-        info.append("\nSample Data (first 5 rows):")
-        info.append(df.head().to_string())
+        # Set a row limit for safety (e.g., only include the first 100 rows)
+        row_limit = 100
+        if df.shape[0] > row_limit:
+            info.append(f"\nDisplaying the first {row_limit} rows (of {df.shape[0]}):")
+            info.append(df.head(row_limit).to_string())
+        else:
+            info.append("\nComplete Data:")
+            info.append(df.to_string())
         
         return "\n".join(info)
 

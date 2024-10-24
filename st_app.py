@@ -7,6 +7,9 @@ from src.api.routes import convert_to_odata, insights_generation, ConversationMa
 if 'data' not in st.session_state:
     st.session_state['data'] = None
 
+if 'query_history' not in st.session_state:
+    st.session_state['query_history'] = []
+
 def get_response(query_input: str):
     try:
         query = Query(text=query_input)
@@ -126,6 +129,7 @@ with tab1:
             st.error("⚠️ Please enter a query before submitting.")
         else:
             # Show a spinner while processing
+            st.session_state['query_history'].append(query_input)
             with st.spinner("Processing query..."):
                 try:
                     # Get the XML response as a string
@@ -180,13 +184,13 @@ with tab2:
         placeholder="Example: What trends can you identify from this data?",
         help="Enter your question or prompt for the AI here."
     )
-
     manager = ConversationManager(max_history=3)
     # Button to submit the AI prompt
     if st.button("Get AI Insights"):
         if not ai_prompt:
             st.error("⚠️ Please enter a prompt before submitting.")
         else:
+            st.session_state['query_history'].append(ai_prompt)
             # Assuming 'last_dataframe' is available in session state
             if 'last_dataframe' in st.session_state and st.session_state['last_dataframe'] is not None:
                 # Show a spinner while processing
@@ -253,8 +257,10 @@ with tab3:
 
 with tab4:
     st.subheader("Recent Queries")
-    # Here you could implement query history functionality
-    st.info("Query history feature coming soon! This will show your recent queries and their results.")
+    if st.session_state["query_history"] is not None:
+        for query in st.session_state["query_history"]:
+            st.write(query)
+    # Here you could implement query history functionality"
 
 # Footer
 st.markdown("---")
