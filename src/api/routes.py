@@ -95,24 +95,16 @@ def convert_to_odata(query: Query):
         for message in event['messages']:
             formatted_message = format_ai_message(message)
             result.append(formatted_message)
+    
     if not result:
         raise HTTPException(status_code=400, detail="Failed to convert query")
-    
-    for line in result[-1].split('\n'):
-        print(line)
-    
-    lines = result[-1].split('\n')
-    # Extract the part between the two newline characters
-    if len(lines) > 1:
-        extracted_part = lines[3]  # This assumes the part you need is on the second line
-        # print(extracted_part)
     else:
         print("No valid content found between newlines")
     
     endpoint = 'http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata/sap/ZSB_PO_GRN/ZC_GRN_PO_DET?'
-    api_url = endpoint + lines[3]
+    api_url = endpoint + result[-1]
     
-    # print(api_url)
+    print(api_url)
     
     response = call_odata_query(api_url)
     
@@ -224,7 +216,12 @@ def insights_generation(prompt: str, df: pd.DataFrame, conversation_manager: Opt
             - "What is the distribution of purchase groups in the dataset?"
 
             Ensure that your responses are accurate, insightful, and based on the data provided. 
-            If any calculations or data summaries are required, perform them as part of your analysis."""
+            If any calculations or data summaries are required, perform them as part of your analysis.
+            ***Please return your response as a JSON string with 'reasoning', 'code', and 'output' keys. ***
+            ***All three keys 'reasoning', 'code' and 'output' are to be populated with string values unless specified.***
+            ***Print the output in a human readable manner, not the direct code output.***
+            ***Most importantly, only return the json string. Nothing else.***
+            """
             )),
             MessagesPlaceholder(variable_name="history"),
             ("human", "{prompt}\n{data}")
