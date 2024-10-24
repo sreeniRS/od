@@ -7,6 +7,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from typing import List, Tuple, Any, Dict, Optional
 from langchain_core.prompts import MessagesPlaceholder
+from langchain_core.output_parsers import JsonOutputParser
+import json
+
 
 from src.tools.nl_to_odata_tool import nl_to_odata
 from src.aiagents.nl2odata_agent import create_graph
@@ -166,37 +169,33 @@ class ConversationManager:
         return message_objects
     
     def format_dataframe_info(self, df: pd.DataFrame) -> str:
-        """Format DataFrame information for the prompt."""
+        """Format DataFrame with a row limit to avoid overloading the LLM context."""
         info = []
         info.append(f"Shape: {df.shape[0]} rows × {df.shape[1]} columns")
         info.append(f"Columns: {', '.join(df.columns.tolist())}")
         
-        # Add sample data
-        info.append("\nSample Data (first 5 rows):")
-        info.append(df.head(70).to_string())
+        # Set a row limit for safety (e.g., only include the first 100 rows)
+        row_limit = 100
+        if df.shape[0] > row_limit:
+            info.append(f"\nDisplaying the first {row_limit} rows (of {df.shape[0]}):")
+            info.append(df.head(row_limit).to_string())
+        else:
+            info.append("\nComplete Data:")
+            info.append(df.to_string())
         
         return "\n".join(info)
 
-def insights_generation(prompt: str, df: pd.DataFrame, conversation_manager: Optional[ConversationManager] = None) -> str:
-    """
-    Generate insights using the conversation manager to handle DataFrame storage and conversation history.
-    """
-    # Initialize conversation manager if not provided
+
+def insights_generation(prompt: str, df: pd.DataFrame, conversation_manager: Optional[ConversationManager] = None) -> dict:
     if conversation_manager is None:
         conversation_manager = ConversationManager()
     
     try:
-        # Store DataFrame if it's new
         df_key = conversation_manager.store_dataframe(df)
-        
-        # Format DataFrame information
         formatted_data = conversation_manager.format_dataframe_info(df)
-        
-        # Create user message
         user_message = f"{prompt}\nDataFrame '{df_key}':\n{formatted_data}"
         conversation_manager.add_message("user", user_message)
-        
-        # Create prompt template
+
         prompt_template = ChatPromptTemplate.from_messages([
             SystemMessage(content=(
             """You are working with a dataset containing information about orders, line items, suppliers, 
@@ -220,28 +219,48 @@ def insights_generation(prompt: str, df: pd.DataFrame, conversation_manager: Opt
 
             Ensure that your responses are accurate, insightful, and based on the data provided. 
             If any calculations or data summaries are required, perform them as part of your analysis."""
-
-
             )),
             MessagesPlaceholder(variable_name="history"),
             ("human", "{prompt}\n{data}")
         ])
-        
-        # Format the prompt with variables
+
         formatted_prompt = prompt_template.format_messages(
             history=conversation_manager.convert_to_messages(),
             prompt=prompt,
             data=formatted_data
         )
-        
-        # Get LLM response
+
         llm = get_llm()  # Assuming this function exists
-        ai_msg = llm.invoke(formatted_prompt)
-        
-        # Add response to conversation history
-        conversation_manager.add_message("assistant", ai_msg.content)
-        
-        return ai_msg.content
-        
+        ai_msg = llm(formatted_prompt)
+
+        # Debugging: print the full AI message
+        print(f"AI Message: {ai_msg}")
+
+        # Access and clean message content
+        message_content = ai_msg.content.strip()
+        print(f"Raw AI Message Content: '{message_content}'")  # Debug print
+
+        if not message_content:
+            raise ValueError("Received empty response from the AI model.")
+
+        # Clean the output to remove markdown formatting
+        message_content = message_content.replace("```json", "").replace("```", "").strip()
+
+        # Parse the JSON string
+        try:
+            parsed_output = json.loads(message_content)
+        except json.JSONDecodeError as e:
+            print(f"JSON decoding error: {e} | Content: {message_content}")
+            return {"reasoning": "Invalid JSON response", "code": "400", "output": None}
+
+        conversation_manager.add_message("assistant", message_content)
+
+        return parsed_output
     except Exception as e:
-        return f"Failed to generate insights: {str(e)}"
+        print(f"An exception occurred: {e}")
+        return {"reasoning": str(e), "code": "500", "output": None}
+
+
+
+
+
