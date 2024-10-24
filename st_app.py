@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import xml.etree.ElementTree as ET
+import plotly.express as px
 from src.api.routes import convert_to_odata, insights_generation, ConversationManager, Query  # Adjust import based on your structure
 
 if 'data' not in st.session_state:
@@ -95,13 +96,13 @@ st.markdown("""
 # Header section with title and description
 col1, col2 = st.columns([6,1])
 with col1:
-    st.title("Smart QueryOData Assistant")
+    st.title("Smart Reporting Bot")
     st.markdown("""
         Introducing our AI-based application QueryOData that simplifies data access by transforming natural language queries into OData queries.
     """)
 
 # Creating tabs for different functionalities
-tab1, tab2, tab3 = st.tabs(["Query Point", "Insights", "Query History"])
+tab1, tab2, tab3, tab4 = st.tabs(["Query Point", "Insights", "Graphical Visualizations", "Query History"])
 
 with tab1:
     # Query input section
@@ -197,8 +198,60 @@ with tab2:
                     st.write(ai_response)
             else:
                 st.warning("No data available. Please submit a query first.")
-
 with tab3:
+    if 'last_dataframe' in st.session_state and st.session_state['last_dataframe'] is not None:
+        st.subheader("Chart")
+
+        # Initialize chart settings in session state
+        if 'chart_type' not in st.session_state:
+            st.session_state['chart_type'] = 'Line'
+        if 'x_col' not in st.session_state:
+            st.session_state['x_col'] = None
+        if 'y_cols' not in st.session_state:
+            st.session_state['y_cols'] = []
+
+        # Display chart options inside the tab (instead of sidebar)
+        st.header('Chart Options')
+
+        # Chart type selection
+        chart_type = st.selectbox('Select chart type:', [
+            'Line', 'Bar', 'Stacked Bar', 'Grouped Bar', 'Horizontal Bar', 'Scatter', 'Histogram', 'Pie', 'Box', 'Heatmap', 'Violin', 'Sunburst', 'Bubble', 'Area', 'Radar', 'Funnel', 'Density', 'Contour', 'Treemap'])
+        st.session_state['chart_type'] = chart_type
+
+        # Select x-axis column inside the tab
+        x_col = st.selectbox('Select x-axis column:', st.session_state['last_dataframe'].columns, 
+                             index=list(st.session_state['last_dataframe'].columns).index(st.session_state['x_col']) if st.session_state['x_col'] else 0)
+        st.session_state['x_col'] = x_col
+
+        # Filter y-axis columns to exclude the selected x-axis column
+        y_options = [col for col in st.session_state['last_dataframe'].columns if col != st.session_state['x_col']]
+
+        # Select y-axis columns inside the tab
+        y_cols = st.multiselect('Select y-axis columns:', y_options, default=st.session_state['y_cols'])
+        st.session_state['y_cols'] = y_cols
+
+        # Initialize the figure
+        fig = None
+        if len(st.session_state['y_cols']) > 0:
+            if st.session_state['chart_type'] == 'Line':
+                fig = px.line(st.session_state['last_dataframe'], x=st.session_state['x_col'], y=st.session_state['y_cols'])
+            elif st.session_state['chart_type'] == 'Bar':
+                fig = px.bar(st.session_state['last_dataframe'], x=st.session_state['x_col'], y=st.session_state['y_cols'])
+            elif st.session_state['chart_type'] == 'Stacked Bar':
+                fig = px.bar(st.session_state['last_dataframe'], x=st.session_state['x_col'], y=st.session_state['y_cols'], text_auto=True)
+                fig.update_layout(barmode='stack')
+            elif st.session_state['chart_type'] == 'Grouped Bar':
+                fig = px.bar(st.session_state['last_dataframe'], x=st.session_state['x_col'], y=st.session_state['y_cols'], text_auto=True)
+                fig.update_layout(barmode='group')
+
+        # Render the figure if created
+        if fig:
+            st.plotly_chart(fig)
+    else:
+        st.write("No data available to generate the chart.")
+
+
+with tab4:
     st.subheader("Recent Queries")
     # Here you could implement query history functionality
     st.info("Query history feature coming soon! This will show your recent queries and their results.")
