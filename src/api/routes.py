@@ -7,10 +7,14 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from typing import List, Tuple, Any, Dict, Optional
 from langchain_core.prompts import MessagesPlaceholder
+from langchain_core.output_parsers import JsonOutputParser
+import json
+
 
 from src.tools.nl_to_odata_tool import nl_to_odata
 from src.aiagents.nl2odata_agent import create_graph
 from src.llm.llm import get_llm
+from schema.prompt_output_schema import Output
 import pandas as pd
 
 
@@ -182,7 +186,8 @@ class ConversationManager:
         
         return "\n".join(info)
 
-def insights_generation(prompt: str, df: pd.DataFrame, conversation_manager: Optional[ConversationManager] = None) -> str:
+
+def insights_generation(prompt: str, df: pd.DataFrame, conversation_manager: Optional[ConversationManager] = None) -> dict:
     """
     Generate insights using the conversation manager to handle DataFrame storage and conversation history.
     """
@@ -217,15 +222,22 @@ def insights_generation(prompt: str, df: pd.DataFrame, conversation_manager: Opt
             prompt=prompt,
             data=formatted_data
         )
+
+        # Use the JsonOutputParser with the Output schema
+        parser = JsonOutputParser(Output)
         
         # Get LLM response
         llm = get_llm()  # Assuming this function exists
-        ai_msg = llm.invoke(formatted_prompt)
+        ai_msg = formatted_prompt | llm | parser     
+
+        # Serialize the AI response as a JSON string before storing it
+        json_content = ai_msg.dict()  # Convert to dict if using Pydantic model
+        conversation_manager.add_message("assistant", json.dumps(json_content, indent=2))
         
-        # Add response to conversation history
-        conversation_manager.add_message("assistant", ai_msg.content)
-        
-        return ai_msg.content
+        # Return the parsed output as a dictionary (JSON object)
+        return json_content
         
     except Exception as e:
-        return f"Failed to generate insights: {str(e)}"
+        error_output = Output(reason=str(e), code="500", output=None)
+        return error_output.dict()  # Return error object as a dictionary
+

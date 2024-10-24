@@ -186,22 +186,36 @@ with tab2:
     )
     manager = ConversationManager(max_history=3)
     # Button to submit the AI prompt
-    if st.button("Get AI Insights"):
-        if not ai_prompt:
-            st.error("⚠️ Please enter a prompt before submitting.")
-        else:
-            st.session_state['query_history'].append(ai_prompt)
-            # Assuming 'last_dataframe' is available in session state
-            if 'last_dataframe' in st.session_state and st.session_state['last_dataframe'] is not None:
-                # Show a spinner while processing
-                with st.spinner("🧠 Asking AI for insights..."):
-                    ai_response = insights_generation(prompt=ai_prompt, df= st.session_state['last_dataframe'], conversation_manager= manager)
+if st.button("Get AI Insights"):
+    if not ai_prompt:
+        st.error("⚠️ Please enter a prompt before submitting.")
+    else:
+        st.session_state['query_history'].append(ai_prompt)
+        # Assuming 'last_dataframe' is available in session state
+        if 'last_dataframe' in st.session_state and st.session_state['last_dataframe'] is not None:
+            # Show a spinner while processing
+            with st.spinner("🧠 Asking AI for insights..."):
+                ai_response = insights_generation(prompt=ai_prompt, df=st.session_state['last_dataframe'], conversation_manager=manager)
 
-                    # Display AI insights
-                    st.subheader("AI Insights")
-                    st.write(ai_response)
-            else:
-                st.warning("No data available. Please submit a query first.")
+                # Display AI insights
+                st.subheader("AI Insights")
+
+                # Show reasoning and code under a collapsible expander
+                if ai_response["reasoning"] is not None:
+                    with st.expander("Reasoning (click to expand)"):
+                        st.write(ai_response["reasoning"])
+
+                if ai_response["code"] is not None:
+                    with st.expander("Code (click to expand)"):
+                        st.code(ai_response["code"])
+
+                # Show the output on a single line
+                if ai_response["output"] is not None:
+                    st.write("### Result")
+                    st.write(ai_response["output"])
+
+        else:
+            st.warning("No data available. Please submit a query first.")
 with tab3:
     if 'last_dataframe' in st.session_state and st.session_state['last_dataframe'] is not None:
         st.subheader("Chart")
