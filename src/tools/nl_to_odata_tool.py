@@ -102,7 +102,7 @@ def construct_odata_query_2(components: Dict) -> str:
         groups = ",".join(components["groupby"])
         aggregates = ",".join(components["aggregate"])
         
-        query_parts.append(f"$apply=filter({filters})")
+        query_parts.append(f"$filter=({filters})")
         query_parts.append(f"groupby(({groups}),aggregate({aggregates}))")
     
     return "/".join(query_parts)

@@ -205,12 +205,12 @@ with tab2:
                         with st.container():
                         # Show reasoning in an expandable section if it exists
                             if ai_response.get("reasoning"):
-                                with st.expander("Reasoning (click to expand)", expanded=False):
+                                with st.expander("### Reasoning (click to expand)", expanded=False):
                                     st.write(ai_response.get("reasoning"))
 
                             # Show code in an expandable section if it exists
                             if ai_response.get("code"):
-                                with st.expander("Code (click to expand)", expanded=False):
+                                with st.expander("### Code (click to expand)", expanded=False):
                                     st.code(ai_response.get("code"))
 
                             # Show the output in a prominent section

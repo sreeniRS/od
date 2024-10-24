@@ -50,10 +50,10 @@ def convert_to_odata(query: Query):
                 3) TSF_ENTITY_ID - This is a unique id for the purchasing organization
                 4) PURCH_GRP - This is the purchase group or category for the service
                 5) SUPPLIER - This is the supplier for the item
-                6) CREAT_DATE - This is the date of creation for that particular item
+                6) CreateDate - This is the date of creation of a particular purchase order or order number
                 7) MATERIAL - This is the material used for the Line item
                 8) STORE_NAME - This is the plant where the material is manufactured
-                
+
                 Process:
                     1. Thought: Analyze query requirements (filtering, grouping, aggregation)
                     2. Action: Use nl_to_odata tool 
@@ -62,7 +62,7 @@ def convert_to_odata(query: Query):
 
                 Rules:
                     - Use $apply for aggregations/grouping
-                    - Handle date ranges in YYYY-MM-DD format
+                    - Handle date ranges in YYYYMMDD format
                     - Enclose values in single quotes
 
                 Examples:
@@ -74,7 +74,9 @@ def convert_to_odata(query: Query):
                     User: Find orders from supplier ABC created in 2023
                     Thought: Need filter for supplier and date range
                     Action: nl_to_odata("filter supplier equals ABC and creation date between 2023")
-                    Response: $apply=filter(SUPPLIER eq 'ABC' and CREAT_DATE gt '2023-01-01' and CREAT_DATE lt '2023-12-31')?sap-statistics=true
+                    Response: $filter(SUPPLIER eq 'ABC' and CREAT_DATE gt '2023-01-01' and CREAT_DATE lt '2023-12-31')
+                
+                *** OUTPUT ONLY THE ODATA QUERY ****
                     """,
         ),
         ("placeholder", "{messages}"),
@@ -95,22 +97,25 @@ def convert_to_odata(query: Query):
             result.append(formatted_message)
     if not result:
         raise HTTPException(status_code=400, detail="Failed to convert query")
+    
+    for line in result[-1].split('\n'):
+        print(line)
+    
     lines = result[-1].split('\n')
     # Extract the part between the two newline characters
     if len(lines) > 1:
         extracted_part = lines[3]  # This assumes the part you need is on the second line
-        print(extracted_part)
+        # print(extracted_part)
     else:
         print("No valid content found between newlines")
     
     endpoint = 'http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata/sap/ZSB_PO_GRN/ZC_GRN_PO_DET?'
     api_url = endpoint + lines[3]
     
-    print(api_url)
+    # print(api_url)
     
     response = call_odata_query(api_url)
     
-    print(response)
     return Response(content=response, media_type="application/xml")  # Return raw XML with proper content type
 
 def call_odata_query(endpoint: str):
@@ -125,6 +130,7 @@ def call_odata_query(endpoint: str):
         return response.text  # Return the raw XML response text
     else:
         print(f"Error: Received response with status code {response.status_code}")
+        print(response.text)
         raise HTTPException(status_code=response.status_code, detail="Error fetching OData")
 
 class ConversationManager:
