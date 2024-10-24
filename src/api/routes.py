@@ -204,12 +204,27 @@ def insights_generation(prompt: str, df: pd.DataFrame, conversation_manager: Opt
 
         prompt_template = ChatPromptTemplate.from_messages([
             SystemMessage(content=(
-                "You are a helpful assistant who answers user queries based on the provided data. "
-                "Provide insights if asked. You have access to the full DataFrame in storage. "
-                "Please return your response as a JSON string with 'reasoning', 'code', and 'output' keys. "
-                "All three keys 'reasoning', 'code' and 'output' are to be populated with string values unless specified."
-                "Print the output in a human readable manner, not the direct code output."
-                "Most importantly, only return the json string. Nothing else."
+            """You are working with a dataset containing information about orders, line items, suppliers, 
+            and purchase details.
+
+            A user will ask you natural language queries to generate insights or analyze this dataset. 
+            Based on the user's query, you need to:
+
+            1. **Understand the query**: Identify the key focus of the user's request (e.g., top suppliers, order trends, material usage, supplier performance).
+            2. **Generate relevant insights**: Provide a detailed response based on the dataset, highlighting key statistics, patterns, trends, and any notable findings.
+            3. **Perform data analysis**: Calculate averages, sums, or rankings if required, and provide relevant insights (e.g., "Top 5 suppliers by order value" or "Order trends over time").
+            4. **Format your response**: Present the insights clearly, with concise explanations and numerical or categorical details where applicable. Make sure the analysis aligns with the user's request.
+            5. **Include recommendations** (if relevant): Suggest actions based on the insights generated (e.g., focusing on top-performing suppliers or identifying areas for improvement).
+
+            Use the following example queries to guide your analysis:
+            - "Who are the top 5 suppliers by total order value?"
+            - "What are the trends in order creation over the past six months?"
+            - "Which materials are used the most across all orders?"
+            - "How does Supplier A perform compared to other suppliers in terms of order value?"
+            - "What is the distribution of purchase groups in the dataset?"
+
+            Ensure that your responses are accurate, insightful, and based on the data provided. 
+            If any calculations or data summaries are required, perform them as part of your analysis."""
             )),
             MessagesPlaceholder(variable_name="history"),
             ("human", "{prompt}\n{data}")
