@@ -53,6 +53,7 @@ def convert_to_odata(query: Query):
                 6) CreateDate - This is the date of creation of a particular purchase order or order number
                 7) MATERIAL - This is the material used for the Line item
                 8) STORE_NAME - This is the plant where the material is manufactured
+                9) UNIT_COST - This is the base amount of the order for a particular line item
 
                 Process:
                     1. Thought: Analyze query requirements (filtering, grouping, aggregation)
@@ -74,7 +75,7 @@ def convert_to_odata(query: Query):
                     User: Find orders from supplier ABC created in 2023
                     Thought: Need filter for supplier and date range
                     Action: nl_to_odata("filter supplier equals ABC and creation date between 2023")
-                    Response: $filter(SUPPLIER eq 'ABC' and CREAT_DATE gt '2023-01-01' and CREAT_DATE lt '2023-12-31')
+                    Response: $filter(SUPPLIER eq 'ABC' and CREAT_DATE gt '20230101' and CREAT_DATE lt '20231231')
                 
                 *** OUTPUT ONLY THE ODATA QUERY ****
                     """,
@@ -102,7 +103,7 @@ def convert_to_odata(query: Query):
         print("No valid content found between newlines")
     
     endpoint = 'http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata/sap/ZSB_PO_GRN/ZC_GRN_PO_DET?'
-    api_url = endpoint + result[-1]
+    api_url = endpoint + result[-1] + "&$inlinecount=allpages"
     
     print(api_url)
     

@@ -10,6 +10,9 @@ if 'show_results' not in st.session_state:
     st.session_state.show_results = False
 if 'query_history' not in st.session_state:
     st.session_state['query_history'] = []
+if 'count' not in st.session_state:
+    st.session_state['count'] = None
+
 
 def get_response(query_input: str):
     try:
@@ -29,6 +32,19 @@ def parse_xml_to_dataframe(xml_data: str):
         root = ET.fromstring(xml_data)
         all_records = []
         
+        # Find the count element with the specified namespace
+        namespaces = {
+            'm': "http://schemas.microsoft.com/ado/2007/08/dataservices/metadata"
+        }
+
+        count_element = root.find('m:count', namespaces)
+
+        # Extract and print the count value
+        if count_element is not None:
+            count_value = int(count_element.text)
+        else:
+            print("Count element not found.")
+        
         # Adjust the namespace accordingly based on your XML structure
         for record in root.findall(".//{http://www.w3.org/2005/Atom}entry"):
             fields = {}
@@ -40,7 +56,7 @@ def parse_xml_to_dataframe(xml_data: str):
                     fields[tag] = value  
             all_records.append(fields)
 
-        return pd.DataFrame(all_records)
+        return count_value, pd.DataFrame(all_records)
     except Exception as e:
         print(f"Error has occurred while executing: {e}")
         st.error("Error parsing the XML data.")
@@ -106,7 +122,7 @@ with col1:
     """)
 
 # Creating tabs for different functionalities
-tab1, tab2, tab3 = st.tabs(["Query Point", "Insights", "Query History"])
+tab1, tab2, tab3, tab4 = st.tabs(["Query Point", "Insights", "Graphical Visualization","Query History"])
 
 with tab1:
     st.subheader("Query Input")
@@ -130,8 +146,9 @@ with tab1:
                         xml_data = get_response(query_input)
                         
                         if xml_data:
-                            dataframe = parse_xml_to_dataframe(xml_data)
-                            
+                            count, dataframe = parse_xml_to_dataframe(xml_data)
+                            if count is not None:
+                                st.session_state['count'] = count
                             if dataframe is not None and not dataframe.empty:
                                 st.success("✅ Query executed successfully!")
                                 # Store results in session state
@@ -152,28 +169,18 @@ with tab1:
 
     # Display results if they exist
     if st.session_state.show_results and st.session_state.last_dataframe is not None:
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Total Records", len(st.session_state.last_dataframe))
-        with col2:
-            st.metric("Columns", len(st.session_state.last_dataframe.columns))
+        # Display count in bold and larger font
+        st.subheader("Results Summary")
+        st.markdown(f"<h2 style='color: #4A4A4A;'>Count: <b>{st.session_state['count']}</b></h2>", unsafe_allow_html=True)
         
+        # Display the DataFrame with specified settings
         st.subheader("Query Results")
         st.dataframe(
-            st.session_state.last_dataframe,
+            st.session_state.last_dataframe.head(200),
             use_container_width=True,
             height=400
         )
-        
-        # Download button
-        csv = st.session_state.last_dataframe.to_csv(index=False)
-        st.download_button(
-            label="Download Results as CSV",
-            data=csv,
-            file_name="query_results.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
+
 
 with tab2:
     st.subheader("AI Insights")
@@ -224,60 +231,60 @@ with tab2:
                     else:
                         st.warning("No insights were generated. Please check your input or try again.")
 
-# with tab3:
-#     if 'last_dataframe' in st.session_state and st.session_state['last_dataframe'] is not None:
-#         st.subheader("Chart")
-
-#         # Initialize chart settings in session state
-#         if 'chart_type' not in st.session_state:
-#             st.session_state['chart_type'] = 'Line'
-#         if 'x_col' not in st.session_state:
-#             st.session_state['x_col'] = None
-#         if 'y_cols' not in st.session_state:
-#             st.session_state['y_cols'] = []
-
-#         # Display chart options inside the tab (instead of sidebar)
-#         st.header('Chart Options')
-
-#         # Chart type selection
-#         chart_type = st.selectbox('Select chart type:', [
-#             'Line', 'Bar', 'Stacked Bar', 'Grouped Bar', 'Horizontal Bar', 'Scatter', 'Histogram', 'Pie', 'Box', 'Heatmap', 'Violin', 'Sunburst', 'Bubble', 'Area', 'Radar', 'Funnel', 'Density', 'Contour', 'Treemap'])
-#         st.session_state['chart_type'] = chart_type
-
-#         # Select x-axis column inside the tab
-#         x_col = st.selectbox('Select x-axis column:', st.session_state['last_dataframe'].columns, 
-#                              index=list(st.session_state['last_dataframe'].columns).index(st.session_state['x_col']) if st.session_state['x_col'] else 0)
-#         st.session_state['x_col'] = x_col
-
-#         # Filter y-axis columns to exclude the selected x-axis column
-#         y_options = [col for col in st.session_state['last_dataframe'].columns if col != st.session_state['x_col']]
-
-#         # Select y-axis columns inside the tab
-#         y_cols = st.multiselect('Select y-axis columns:', y_options, default=st.session_state['y_cols'])
-#         st.session_state['y_cols'] = y_cols
-
-#         # Initialize the figure
-#         fig = None
-#         if len(st.session_state['y_cols']) > 0:
-#             if st.session_state['chart_type'] == 'Line':
-#                 fig = px.line(st.session_state['last_dataframe'], x=st.session_state['x_col'], y=st.session_state['y_cols'])
-#             elif st.session_state['chart_type'] == 'Bar':
-#                 fig = px.bar(st.session_state['last_dataframe'], x=st.session_state['x_col'], y=st.session_state['y_cols'])
-#             elif st.session_state['chart_type'] == 'Stacked Bar':
-#                 fig = px.bar(st.session_state['last_dataframe'], x=st.session_state['x_col'], y=st.session_state['y_cols'], text_auto=True)
-#                 fig.update_layout(barmode='stack')
-#             elif st.session_state['chart_type'] == 'Grouped Bar':
-#                 fig = px.bar(st.session_state['last_dataframe'], x=st.session_state['x_col'], y=st.session_state['y_cols'], text_auto=True)
-#                 fig.update_layout(barmode='group')
-
-#         # Render the figure if created
-#         if fig:
-#             st.plotly_chart(fig)
-#     else:
-#         st.write("No data available to generate the chart.")
-
-
 with tab3:
+    if 'last_dataframe' in st.session_state and st.session_state['last_dataframe'] is not None:
+        st.subheader("Chart")
+
+        # Initialize chart settings in session state
+        if 'chart_type' not in st.session_state:
+            st.session_state['chart_type'] = 'Line'
+        if 'x_col' not in st.session_state:
+            st.session_state['x_col'] = None
+        if 'y_cols' not in st.session_state:
+            st.session_state['y_cols'] = []
+
+        # Display chart options inside the tab (instead of sidebar)
+        st.header('Chart Options')
+
+        # Chart type selection
+        chart_type = st.selectbox('Select chart type:', [
+            'Line', 'Bar', 'Stacked Bar', 'Grouped Bar', 'Horizontal Bar', 'Scatter', 'Histogram', 'Pie', 'Box', 'Heatmap', 'Violin', 'Sunburst', 'Bubble', 'Area', 'Radar', 'Funnel', 'Density', 'Contour', 'Treemap'])
+        st.session_state['chart_type'] = chart_type
+
+        # Select x-axis column inside the tab
+        x_col = st.selectbox('Select x-axis column:', st.session_state['last_dataframe'].columns, 
+                             index=list(st.session_state['last_dataframe'].columns).index(st.session_state['x_col']) if st.session_state['x_col'] else 0)
+        st.session_state['x_col'] = x_col
+
+        # Filter y-axis columns to exclude the selected x-axis column
+        y_options = [col for col in st.session_state['last_dataframe'].columns if col != st.session_state['x_col']]
+
+        # Select y-axis columns inside the tab
+        y_cols = st.multiselect('Select y-axis columns:', y_options, default=st.session_state['y_cols'])
+        st.session_state['y_cols'] = y_cols
+
+        # Initialize the figure
+        fig = None
+        if len(st.session_state['y_cols']) > 0:
+            if st.session_state['chart_type'] == 'Line':
+                fig = px.line(st.session_state['last_dataframe'], x=st.session_state['x_col'], y=st.session_state['y_cols'])
+            elif st.session_state['chart_type'] == 'Bar':
+                fig = px.bar(st.session_state['last_dataframe'], x=st.session_state['x_col'], y=st.session_state['y_cols'])
+            elif st.session_state['chart_type'] == 'Stacked Bar':
+                fig = px.bar(st.session_state['last_dataframe'], x=st.session_state['x_col'], y=st.session_state['y_cols'], text_auto=True)
+                fig.update_layout(barmode='stack')
+            elif st.session_state['chart_type'] == 'Grouped Bar':
+                fig = px.bar(st.session_state['last_dataframe'], x=st.session_state['x_col'], y=st.session_state['y_cols'], text_auto=True)
+                fig.update_layout(barmode='group')
+
+        # Render the figure if created
+        if fig:
+            st.plotly_chart(fig)
+    else:
+        st.write("No data available to generate the chart.")
+
+
+with tab4:
     st.subheader("Recent Queries")
     if st.session_state["query_history"] is not None:
         for query in st.session_state["query_history"]:
