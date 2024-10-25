@@ -170,8 +170,8 @@ with tab1:
     # Display results if they exist
     if st.session_state.show_results and st.session_state.last_dataframe is not None:
         # Display count in bold and larger font
-        st.subheader("Results Summary")
-        st.markdown(f"<h2 style='color: #4A4A4A;'>Count: <b>{st.session_state['count']}</b></h2>", unsafe_allow_html=True)
+        # st.subheader("Results Summary")
+        # st.markdown(f"<h2 style='color: #4A4A4A;'>Count: <b>{st.session_state['count']}</b></h2>", unsafe_allow_html=True)
         
         # Display the DataFrame with specified settings
         st.subheader("Query Results")

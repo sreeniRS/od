@@ -1,15 +1,15 @@
 Query endpoint:
-- Refine Odata tool for handling count and value aggregation
-- Recognize the Current Date (Check period wise data fetch)
-- 100 Records
+- Refine Odata tool for handling count and value aggregation (Rq V4)
+- Recognize the Current Date (Check period wise data fetch) (Later Testing Required)
+- 100 Records (Identified Error)
 
 Graphical Visualization
 - Auto Scaling of the Data before Plottinh
 - Multiple Fields in X axis (Supplier, Material No or Material Type) Example
 
 Insights:
-- Explain some basic points within the insights
-
+- Explain some basic points within the insights 
+        
 
 CDS View -> Storing it in a Database
 
@@ -23,3 +23,15 @@ context 2000/100 = 20 (Sequential Agents in Parallel) -> Results would be passed
 
 
 If one operation is asking average of all the columns in one particular dataframe
+
+
+
+
+
+
+
+
+
+
+
+

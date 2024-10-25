@@ -1,5 +1,4 @@
-Query->OData Agent-> XML Response -> (Dataframe) -> Display (Display entire CDS view)
-                                                 
+Query->OData Agent-> XML Response -> (Dataframe) -> Display (Display entire CDS view)                                                 
                                               if(Field Selection Required for user query)?    
                                                  -> Select Fields for Display -> Insights 
                                                  -> Select Fields for Display -> Chart Generation

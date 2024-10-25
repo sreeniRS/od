@@ -1,0 +1,5 @@
+# Queries 
+
+Can I have the list of orders booked in the last quarter of 2024?
+Can I have the detail of 50 orders from January 2023 to March 2023
+Can I have 50 orders from January to September 2024 with columns order no, supplier no, supplier name, material, material description and unit cost?

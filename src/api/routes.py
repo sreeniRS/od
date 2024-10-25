@@ -53,30 +53,29 @@ def convert_to_odata(query: Query):
                 6) CreateDate - This is the date of creation of a particular purchase order or order number
                 7) MATERIAL - This is the material used for the Line item
                 8) STORE_NAME - This is the plant where the material is manufactured
-            
+                9) UNIT_COST - This is the amount for the order for a particular line item 
+                10) MATERIAL_DESC - This is the description of the material used
+                11) SUP_NAME - This is the supplier name.
             Time Period Definitions:
                 - Q1: April 1 to June 30
                 - Q2: July 1 to September 30
                 - Q3: October 1 to December 31
                 - Q4: January 1 to March 31
 
-                - First Half or H1: January 1 to June 30
-                - Second Half or H2: July 1 to December 31
+                - First Half or H1: April 1 to September 30
+                - Second Half or H2: October 1 to March 31
                 - Last Quarter: Previous 3 months from current date
                 - Last Year: Previous year from current date
                 - YTD: January 1 to current date of current year
-
             Process:
                 1. Thought: Analyze query requirements (filtering, grouping, aggregation)
                 2. Action: Use nl_to_odata tool 
                 3. Observation: Verify syntax and completeness
                 4. Response: Return OData query.
-
             Rules:
                 - Use $apply for aggregations/grouping
                 - Handle date ranges in YYYYMMDD format
                 - Enclose values in single quotes
-
             Examples:
                 User: Show total orders by supplier
                 Thought: Need grouping by supplier with order count
@@ -91,14 +90,16 @@ def convert_to_odata(query: Query):
                 User: Show orders from Q1 2023
                 Thought: Need filter for Q1 date range
                 Action: nl_to_odata("filter creation date in Q1 2023")
-                Response: $filter(CreateDate ge '20230101' and CreateDate le '20230331')
+                Response: $filter=CreateDate ge '20230401' and CreateDate le '20230630'
 
                 User: Show orders from H1 2023
                 Thought: Need filter for first half year range
                 Action: nl_to_odata("filter creation date in first half 2023")
-                Response: $filter(CreateDate ge '20230101' and CreateDate le '20230630')
+                Response: $filter=CreateDate ge '20230401' and CreateDate le '20230930'
                 
+                *** FOLLOW THE DEFINITNIONS FOR THE INDIAN FINANCIAL YEAR FOR DATE RELATED QUERIES ***
                 *** OUTPUT ONLY THE ODATA QUERY ****
+                
                     """,
         ),
         ("placeholder", "{messages}"),
