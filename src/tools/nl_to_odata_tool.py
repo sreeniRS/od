@@ -107,6 +107,9 @@ def construct_odata_query_2(components: Dict) -> str:
     
     return "/".join(query_parts)
 
+
+
+
 @tool
 def nl_to_odata(query: str) -> str:
     """Convert natural language to OData query using GPT-4's understanding"""

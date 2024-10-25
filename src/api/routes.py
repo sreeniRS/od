@@ -53,28 +53,50 @@ def convert_to_odata(query: Query):
                 6) CreateDate - This is the date of creation of a particular purchase order or order number
                 7) MATERIAL - This is the material used for the Line item
                 8) STORE_NAME - This is the plant where the material is manufactured
+            
+            Time Period Definitions:
+                - Q1: April 1 to June 30
+                - Q2: July 1 to September 30
+                - Q3: October 1 to December 31
+                - Q4: January 1 to March 31
 
-                Process:
-                    1. Thought: Analyze query requirements (filtering, grouping, aggregation)
-                    2. Action: Use nl_to_odata tool 
-                    3. Observation: Verify syntax and completeness
-                    4. Response: Return OData query.
+                - First Half or H1: January 1 to June 30
+                - Second Half or H2: July 1 to December 31
+                - Last Quarter: Previous 3 months from current date
+                - Last Year: Previous year from current date
+                - YTD: January 1 to current date of current year
 
-                Rules:
-                    - Use $apply for aggregations/grouping
-                    - Handle date ranges in YYYYMMDD format
-                    - Enclose values in single quotes
+            Process:
+                1. Thought: Analyze query requirements (filtering, grouping, aggregation)
+                2. Action: Use nl_to_odata tool 
+                3. Observation: Verify syntax and completeness
+                4. Response: Return OData query.
 
-                Examples:
-                    User: Show total orders by supplier
-                    Thought: Need grouping by supplier with order count
-                    Action: nl_to_odata("group by supplier and count orders")
-                    Response: $apply=groupby((SUPPLIER),aggregate(ORDER_NO with count as Total))
+            Rules:
+                - Use $apply for aggregations/grouping
+                - Handle date ranges in YYYYMMDD format
+                - Enclose values in single quotes
 
-                    User: Find orders from supplier ABC created in 2023
-                    Thought: Need filter for supplier and date range
-                    Action: nl_to_odata("filter supplier equals ABC and creation date between 2023")
-                    Response: $filter(SUPPLIER eq 'ABC' and CREAT_DATE gt '2023-01-01' and CREAT_DATE lt '2023-12-31')
+            Examples:
+                User: Show total orders by supplier
+                Thought: Need grouping by supplier with order count
+                Action: nl_to_odata("group by supplier and count orders")
+                Response: $apply=groupby((SUPPLIER),aggregate(ORDER_NO with count as Total))
+
+                User: Find orders from supplier ABC created in 2023
+                Thought: Need filter for supplier and date range
+                Action: nl_to_odata("filter supplier equals ABC and creation date between 2023")
+                Response: $filter(SUPPLIER eq 'ABC' and CREAT_DATE gt '20230101' and CREAT_DATE lt '20231231')
+
+                User: Show orders from Q1 2023
+                Thought: Need filter for Q1 date range
+                Action: nl_to_odata("filter creation date in Q1 2023")
+                Response: $filter(CreateDate ge '20230101' and CreateDate le '20230331')
+
+                User: Show orders from H1 2023
+                Thought: Need filter for first half year range
+                Action: nl_to_odata("filter creation date in first half 2023")
+                Response: $filter(CreateDate ge '20230101' and CreateDate le '20230630')
                 
                 *** OUTPUT ONLY THE ODATA QUERY ****
                     """,
