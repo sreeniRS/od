@@ -66,6 +66,7 @@ def convert_to_odata(query: Query):
                 - Second Half or H2: October 1 to March 31
                 - Last Quarter: Previous 3 months from current date
                 - Last Year: Previous year from current date
+                - fiscal year : April 1 to next year's March 31
                 - YTD: January 1 to current date of current year
             Process:
                 1. Thought: Analyze query requirements (filtering, grouping, aggregation)
