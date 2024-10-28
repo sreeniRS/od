@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
-import xml.etree.ElementTree as ET
 import plotly.express as px
-from src.api.routes import convert_to_odata, insights_generation, ConversationManager, Query  # Adjust import based on your structure
+from src.api.routes import convert_to_odata, Query  # Adjust import based on your structure
+from src.api.insights_generation import insights_generation, ConversationManager
+
 
 if 'data' not in st.session_state:
     st.session_state['data'] = None
@@ -17,52 +18,40 @@ if 'count' not in st.session_state:
 def get_response(query_input: str):
     try:
         query = Query(text=query_input)
-        # Call the FastAPI endpoint to get the XML response
-        xml_response = convert_to_odata(query)
-        print(type(xml_response.body))
-        return xml_response.body  # Return the raw XML response text
+        # Call the FastAPI endpoint to get a DICTIONARY RESPONSE
+        json_response = convert_to_odata(query)
+        return json_response
     except Exception as e:
         print(f"An error occurred: {e}")
         st.error("Failed to fetch the response from the server.")
         return None
 
-def parse_xml_to_dataframe(xml_data: str):
+import pandas as pd
+
+import pandas as pd
+
+def parse_json_to_dataframe(json_data):
     try:
-        # Parse the XML string directly
-        root = ET.fromstring(xml_data)
-        all_records = []
-        
-        # Find the count element with the specified namespace
-        namespaces = {
-            'm': "http://schemas.microsoft.com/ado/2007/08/dataservices/metadata"
-        }
-
-        count_element = root.find('m:count', namespaces)
-
-        # Extract and print the count value
-        if count_element is not None:
-            count_value = int(count_element.text)
+        # Check if json_data is a dictionary
+        if isinstance(json_data, dict):
+            # Extract the records from the "value" key
+            records = json_data.get("value", [])
         else:
-            print("Count element not found.")
+            # If it's not a dictionary, we cannot extract records
+            print("Error: Expected json_data to be a dictionary.")
+            return None
         
-        # Adjust the namespace accordingly based on your XML structure
-        for record in root.findall(".//{http://www.w3.org/2005/Atom}entry"):
-            fields = {}
-            properties = record.find(".//{http://schemas.microsoft.com/ado/2007/08/dataservices/metadata}properties")
-            if properties is not None:
-                for field in properties:
-                    tag = field.tag.split('}')[1]  # Get the field name without the namespace
-                    value = field.text if field.text is not None else ""  # Handle None values
-                    fields[tag] = value  
-            all_records.append(fields)
-
-        return count_value, pd.DataFrame(all_records)
+        # If records is not a list, print an error and return None
+        if not isinstance(records, list):
+            print("Error: Expected 'value' to be a list.")
+            return None
+        
+        # Convert the list of records to a DataFrame
+        df = pd.DataFrame(records)
+        return df
     except Exception as e:
-        print(f"Error has occurred while executing: {e}")
-        st.error("Error parsing the XML data.")
+        print(f"Error occurred while parsing JSON data: {e}")
         return None
-
-
 
 
 # Set page configuration
@@ -143,12 +132,12 @@ with tab1:
                 with st.spinner("Processing query..."):
                     try:
                         # Get the XML response as a string
-                        xml_data = get_response(query_input)
+                        json_response = get_response(query_input)
                         
-                        if xml_data:
-                            count, dataframe = parse_xml_to_dataframe(xml_data)
-                            if count is not None:
-                                st.session_state['count'] = count
+                        if json_response:
+                            dataframe = parse_json_to_dataframe(json_response)
+                            # if count is not None:
+                            #     st.session_state['count'] = count
                             if dataframe is not None and not dataframe.empty:
                                 st.success("✅ Query executed successfully!")
                                 # Store results in session state

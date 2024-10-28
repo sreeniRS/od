@@ -124,25 +124,31 @@ def convert_to_odata(query: Query):
     else:
         print("No valid content found between newlines")
     
-    endpoint = 'http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata/sap/ZSB_PO_GRN/ZC_GRN_PO_DET?'
-    api_url = endpoint + result[-1] + "&$inlinecount=allpages"
+    endpoint = 'http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata4/sap/zsb_po_grn_sb4/srvd_a2x/sap/zsd_po_grn_det/0001/ZC_GRN_PO_DET?'
+    api_url = endpoint + result[-1] + "&$count=True"
     
     print(api_url)
     
-    response = call_odata_query(api_url)
-    
-    return Response(content=response, media_type="application/xml")  # Return raw XML with proper content type
+    response_content = call_odata_query(api_url)
+    print(type(response_content))  
+    return response_content
 
 def call_odata_query(endpoint: str):
     # Basic authentication credentials
-    username = 'DEV_100'
-    password = 'Nestle1330$'
+    username = 'RT_F_002'
+    password = 'Teched@2024'
     # Make the request
     response = requests.get(endpoint, auth=HTTPBasicAuth(username, password))
     print(response.status_code)
 
     if response.status_code == 200:
-        return response.text  # Return the raw XML response text
+        try:
+            # Attempt to parse JSON content
+            json_response = response.json()
+            return json_response
+        except ValueError:  # If JSON decoding fails
+            print("Error: Response is not in JSON format.")
+            raise HTTPException(status_code=500, detail="Response is not in JSON format")
     else:
         print(f"Error: Received response with status code {response.status_code}")
         print(response.text)
