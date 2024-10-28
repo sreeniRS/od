@@ -215,7 +215,6 @@ class ConversationManager:
         
     #    return "\n".join(info)
 
-
 def insights_generation(prompt: str, df: pd.DataFrame, conversation_manager: Optional[ConversationManager] = None) -> dict:
     if conversation_manager is None:
         conversation_manager = ConversationManager()

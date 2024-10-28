@@ -8,6 +8,6 @@ Can I have 50 orders from January to September 2024 with columns order no, suppl
 Give me the data for both Q1 and Q3 for FY2024
 
 
-Can I have a summary of the orders made by supplier 1000000>
+Can I have a summary of the orders made by supplier 1000000
 
 Can I have the top five suppliers in 2023 along with the base cost? (Orderby support)
