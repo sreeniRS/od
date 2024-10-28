@@ -11,6 +11,9 @@ from langchain_core.output_parsers import JsonOutputParser
 import json
 
 
+from langchain.agents.agent_types import AgentType
+from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
+
 from src.tools.nl_to_odata_tool import nl_to_odata
 from src.aiagents.nl2odata_agent import create_graph
 from src.llm.llm import get_llm
@@ -98,7 +101,6 @@ def convert_to_odata(query: Query):
                 Action: nl_to_odata("filter creation date in first half 2023")
                 Response: $filter=CreateDate ge '20230401' and CreateDate le '20230930'
                 
-                *** FOLLOW THE DEFINITNIONS FOR THE INDIAN FINANCIAL YEAR FOR DATE RELATED QUERIES ***
                 *** OUTPUT ONLY THE ODATA QUERY ****
                 
                     """,
@@ -126,7 +128,7 @@ def convert_to_odata(query: Query):
         print("No valid content found between newlines")
     
     endpoint = 'http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata/sap/ZSB_PO_GRN/ZC_GRN_PO_DET?'
-    api_url = endpoint + result[-1] + "&$inlinecount=allpages"
+    api_url = endpoint + result[-1]
     
     print(api_url)
     
@@ -180,32 +182,32 @@ class ConversationManager:
         if len(self.conversation_history) > self.max_history:
             self.conversation_history = self.conversation_history[-self.max_history:]
     
-    def convert_to_messages(self) -> List[Any]:
-        """Convert conversation history to LangChain message objects."""
-        message_objects = []
-        for role, content in self.conversation_history:
-            if role == "user":
-                message_objects.append(HumanMessage(content=content))
-            elif role == "assistant":
-                message_objects.append(AIMessage(content=content))
-        return message_objects
+    #def convert_to_messages(self) -> List[Any]:
+    #   """Convert conversation history to LangChain message objects."""
+    #    message_objects = []
+    #   for role, content in self.conversation_history:
+    #        if role == "user":
+    #            message_objects.append(HumanMessage(content=content))
+    #        elif role == "assistant":
+    #            message_objects.append(AIMessage(content=content))
+    #   return message_objects
     
-    def format_dataframe_info(self, df: pd.DataFrame) -> str:
-        """Format DataFrame with a row limit to avoid overloading the LLM context."""
-        info = []
-        info.append(f"Shape: {df.shape[0]} rows × {df.shape[1]} columns")
-        info.append(f"Columns: {', '.join(df.columns.tolist())}")
+    #def format_dataframe_info(self, df: pd.DataFrame) -> str:
+    #    """Format DataFrame with a row limit to avoid overloading the LLM context."""
+    #    info = []
+    #    info.append(f"Shape: {df.shape[0]} rows × {df.shape[1]} columns")
+    #    info.append(f"Columns: {', '.join(df.columns.tolist())}")
         
         # Set a row limit for safety (e.g., only include the first 100 rows)
-        row_limit = 100
-        if df.shape[0] > row_limit:
-            info.append(f"\nDisplaying the first {row_limit} rows (of {df.shape[0]}):")
-            info.append(df.head(row_limit).to_string())
-        else:
-            info.append("\nComplete Data:")
-            info.append(df.to_string())
+    #    row_limit = 100
+    #    if df.shape[0] > row_limit:
+    #        info.append(f"\nDisplaying the first {row_limit} rows (of {df.shape[0]}):")
+    #        info.append(df.head(row_limit).to_string())
+    #    else:
+    #        info.append("\nComplete Data:")
+    #       info.append(df.to_string())
         
-        return "\n".join(info)
+    #    return "\n".join(info)
 
 
 def insights_generation(prompt: str, df: pd.DataFrame, conversation_manager: Optional[ConversationManager] = None) -> dict:
@@ -214,78 +216,89 @@ def insights_generation(prompt: str, df: pd.DataFrame, conversation_manager: Opt
     
     try:
         df_key = conversation_manager.store_dataframe(df)
-        formatted_data = conversation_manager.format_dataframe_info(df)
-        user_message = f"{prompt}\nDataFrame '{df_key}':\n{formatted_data}"
-        conversation_manager.add_message("user", user_message)
+        #formatted_data = conversation_manager.format_dataframe_info(df)
+        #user_message = f"{prompt}\nDataFrame '{df_key}':\n{formatted_data}"
+        conversation_manager.add_message("user", prompt)
 
-        prompt_template = ChatPromptTemplate.from_messages([
-            SystemMessage(content=(
-            """You are working with a dataset containing information about orders, line items, suppliers, 
-            and purchase details.
-
-            A user will ask you natural language queries to generate insights or analyze this dataset. 
-            Based on the user's query, you need to:
-
-            1. **Understand the query**: Identify the key focus of the user's request (e.g., top suppliers, order trends, material usage, supplier performance).
-            2. **Generate relevant insights**: Provide a detailed response based on the dataset, highlighting key statistics, patterns, trends, and any notable findings.
-            3. **Perform data analysis**: Calculate averages, sums, or rankings if required, and provide relevant insights (e.g., "Top 5 suppliers by order value" or "Order trends over time").
-            4. **Format your response**: Present the insights clearly, with concise explanations and numerical or categorical details where applicable. Make sure the analysis aligns with the user's request.
-            5. **Include recommendations** (if relevant): Suggest actions based on the insights generated (e.g., focusing on top-performing suppliers or identifying areas for improvement).
-
-            Use the following example queries to guide your analysis:
-            - "Who are the top 5 suppliers by total order value?"
-            - "What are the trends in order creation over the past six months?"
-            - "Which materials are used the most across all orders?"
-            - "How does Supplier A perform compared to other suppliers in terms of order value?"
-            - "What is the distribution of purchase groups in the dataset?"
-
-            Ensure that your responses are accurate, insightful, and based on the data provided. 
-            If any calculations or data summaries are required, perform them as part of your analysis.
-            ***Please return your response as a JSON string with 'reasoning', 'code', and 'output' keys. ***
-            ***All three keys 'reasoning', 'code' and 'output' are to be populated with string values unless specified.***
-            ***Print the output in a human readable manner, not the direct code output.***
-            ***Most importantly, only return the json string. Nothing else.***
-            """
-            )),
-            MessagesPlaceholder(variable_name="history"),
-            ("human", "{prompt}\n{data}")
-        ])
-
-        formatted_prompt = prompt_template.format_messages(
-            history=conversation_manager.convert_to_messages(),
-            prompt=prompt,
-            data=formatted_data
+        agent = create_pandas_dataframe_agent(
+            llm=get_llm(),
+            df = df,
+            verbose=True, 
+            agent_type=AgentType.OPENAI_FUNCTIONS,
+            allow_dangerous_code=True
         )
 
-        llm = get_llm()  # Assuming this function exists
-        ai_msg = llm(formatted_prompt)
+        #json compliant string format
+        safe_prompt = prompt.replace('\n', '\\n') + "\nPlease respond in Json format with keys 'reasoning', 'code', and 'output'."
+
+        ai_response = agent.invoke(safe_prompt)
+
+        #printing the raw response
+        #print(f"Raw AI response: {ai_response}")
+        #
+        #Extract the output for processing
+        response_content = ai_response.get("output")
+
+        if not response_content:
+            raise ValueError("No output received from the agent")
+
+
+        # Remove Markdown formatting if present
+        if response_content.startswith("```json"):
+            response_content = response_content[7:]  # Remove initial ```json
+        if response_content.endswith("```"):
+            response_content = response_content[:-3]  # Remove trailing ```
+
+        try:
+            #respose_content = ai_response.get("arguments", "")
+            parsed_output = json.loads(response_content.strip())
+            # Add Ai response to the conversational history
+            conversation_manager.add_message("assistant", response_content)
+            return parsed_output
+        except json.JSONDecodeError:
+            print(f"Non -Json Response: {response_content}")
+            return {"reasoning": "Received plain text insted of Json",
+                    "code": "400",
+                    "output": None}
+        
+    except Exception as e:
+        print(f"Error: {e}")
+        return {"reasoning": str(e), "code": "500", "output":None}
+        #formatted_prompt = prompt_template.format_messages(
+        #    history=conversation_manager.convert_to_messages(),
+        #    prompt=prompt,
+        #    data=formatted_data
+        #)
+
+        #llm = get_llm()  # Assuming this function exists
+        #ai_msg = llm(formatted_prompt)
 
         # Debugging: print the full AI message
-        print(f"AI Message: {ai_msg}")
+        #print(f"AI Message: {ai_msg}")
 
         # Access and clean message content
-        message_content = ai_msg.content.strip()
-        print(f"Raw AI Message Content: '{message_content}'")  # Debug print
+        #message_content = ai_msg.content.strip()
+        #print(f"Raw AI Message Content: '{message_content}'")  # Debug print
 
-        if not message_content:
-            raise ValueError("Received empty response from the AI model.")
+        #if not message_content:
+        #    raise ValueError("Received empty response from the AI model.")
 
         # Clean the output to remove markdown formatting
-        message_content = message_content.replace("```json", "").replace("```", "").strip()
+        #message_content = message_content.replace("```json", "").replace("```", "").strip()
 
         # Parse the JSON string
-        try:
-            parsed_output = json.loads(message_content)
-        except json.JSONDecodeError as e:
-            print(f"JSON decoding error: {e} | Content: {message_content}")
-            return {"reasoning": "Invalid JSON response", "code": "400", "output": None}
+        #try:
+        #    parsed_output = json.loads(message_content)
+        #except json.JSONDecodeError as e:
+        #    print(f"JSON decoding error: {e} | Content: {message_content}")
+        #    return {"reasoning": "Invalid JSON response", "code": "400", "output": None}
 
-        conversation_manager.add_message("assistant", message_content)
+        #conversation_manager.add_message("assistant", message_content)
 
-        return parsed_output
-    except Exception as e:
-        print(f"An exception occurred: {e}")
-        return {"reasoning": str(e), "code": "500", "output": None}
+        #return parsed_output
+    #except Exception as e:
+    #    print(f"An exception occurred: {e}")
+    #    return {"reasoning": str(e), "code": "500", "output": None}
 
 
 
