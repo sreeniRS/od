@@ -3,3 +3,28 @@ Query->OData Agent-> XML Response -> (Dataframe) -> Display (Display entire CDS 
                                                  -> Select Fields for Display -> Insights 
                                                  -> Select Fields for Display -> Chart Generation
 
+
+
+Insights:
+   Dataframe from the user -> We can provide column mappings -> You can use tool calling for aggregated columns -> Generate insight based on that for calculation 
+
+   Prompt = You are provided a list of list of data, and mappings for that particular data {for key in key:value}
+      You will create a new dataframe based on the selection of user query and criteria. Once you have decided, you have access to tools 
+      call_data which you can use to extract the information.   
+
+
+Three Agents 
+      First one would be for reasoining-> reasoining would be passed onto the code generator, also provide the location for the dataframe for it to load -> REPL Environement agent which would run the code, and produce the output in human readable format
+      -> Output State?
+
+
+      API:
+         Get 
+         -insight_generation(dataframe_location, prompt, ConversationManager()):
+         
+
+
+      Agents:
+         Reasoning Agent (System prompt, personal_agent_prompt, dataframe_mappings)
+         Code Generator (System prompt, personal_agent_prompt, dataframe_location) [Generate Code from where the dataframe is located] ->REPL Tool
+         
