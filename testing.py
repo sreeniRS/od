@@ -81,9 +81,9 @@ def call_odata_query(endpoint: str):
         raise HTTPException(status_code=response.status_code, detail="Error fetching OData")
 
     
-result = f"$filter=CreateDate ge '20231001' and CreateDate le '20231231'"
-endpoint = f"http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata4/sap/zsb_po_grn_sb4/srvd_a2x/sap/zsd_po_grn_det/0001/ZC_GRN_PO_DET?"
-api_url = endpoint + result + f"&$count=True"
+# result = f"$filter=CreateDate ge '20231001' and CreateDate le '20231231'"
+# endpoint = f"http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata4/sap/zsb_po_grn_sb4/srvd_a2x/sap/zsd_po_grn_det/0001/ZC_GRN_PO_DET?"
+# api_url = endpoint + result + f"&$count=True"
     
 # print(api_url)
     
@@ -94,35 +94,91 @@ api_url = endpoint + result + f"&$count=True"
 # Okay so far, I have a working input of retrieving the response but that happens to have 2999 values within the array.
 # Now I need to work on making this call asynchronous
 # Using a simple for loop. How does it work
-import datetime
-import json
+# import datetime
+# import json
 
+
+#need to keep a copy of a json file and then append the values section.
+
+# time = datetime.datetime.now()
+# while response.status_code != 400 and skiptoken < response.json().get("@odata.count", 101):
+#     try:
+#         print(skiptoken)
+#         data = response.json()  # Parse JSON response
+#         if "value" in data:
+#             value.extend(data["value"])  # Append the 'value' list from each response
+
+#         # Update the skiptoken for the next page request
+#         skiptoken += 100
+#         response = requests.get(f"{api_url}&skiptoken={skiptoken}", auth=HTTPBasicAuth(username, password))
+#     except Exception as e:
+#         print(f"An error occurred: {e}")
+#         break
+
+# string = json.dumps(value, indent=4)
+# # all_data now contains the aggregated results
+# with open('./values.json', 'w') as f:
+#     f.write(string)
+# wall_time = datetime.datetime.now()- time
+# print(wall_time) # It takes a linear complexity of O(n). 11 seconds for 3000 rows
+
+result = f"$filter=CreateDate ge '20231001' and CreateDate le '20231231'"
+endpoint = f"http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata4/sap/zsb_po_grn_sb4/srvd_a2x/sap/zsd_po_grn_det/0001/ZC_GRN_PO_DET?"
+api_url = endpoint + result + f"&$count=True"
 username = 'RT_F_002'
 password = 'Teched@2024'
 
-skiptoken = 100
-response = requests.get(f"{api_url}&skiptoken={skiptoken}", auth=HTTPBasicAuth(username, password))
-value = []
-#need to keep a copy of a json file and then append the values section.
+from aiohttp import ClientSession, BasicAuth
+import asyncio
+import json
+import datetime
 
-time = datetime.datetime.now()
-while response.status_code != 400 and skiptoken < response.json().get("@odata.count", 101):
-    try:
-        print(skiptoken)
-        data = response.json()  # Parse JSON response
-        if "value" in data:
-            value.extend(data["value"])  # Append the 'value' list from each response
+async def fetch_data(api_url, skiptoken, session):
+    url = f"{api_url}&skiptoken={skiptoken}"
+    async with session.get(url, auth = BasicAuth(username, password)) as response:
+        return await response.json()
 
-        # Update the skiptoken for the next page request
-        skiptoken += 100
-        response = requests.get(f"{api_url}&skiptoken={skiptoken}", auth=HTTPBasicAuth(username, password))
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        break
+async def main(api_url):
+    aggregated_data = []
+    skiptoken = 0
 
-string = json.dumps(value, indent=4)
-# all_data now contains the aggregated results
-with open('./values.json', 'w') as f:
-    f.write(string)
-wall_time = datetime.datetime.now()- time
-print(wall_time) # It takes a linear complexity of O(n). 11 seconds for 3000 rows
+    async with ClientSession() as session:
+        while True:
+            # Define tasks for batch requests
+            tasks = [
+                fetch_data(api_url, skiptoken + (i * 100), session)
+                for i in range(5)  # Set concurrency level here
+            ]
+            responses = await asyncio.gather(*tasks)
+
+            # Collect "value" data from responses
+            for response_data in responses:
+                if "value" in response_data:
+                    aggregated_data.extend(response_data["value"])
+
+            # Check if more data exists to fetch
+            skiptoken += 500  # Increment based on batch size
+            if skiptoken >= responses[-1].get("@odata.count", skiptoken):
+                break
+
+    # Write aggregated data to a JSON file for verification
+    with open('./aggregated_values.json', 'w') as file:
+        json.dump({"value": aggregated_data}, file, indent=4)
+
+    return aggregated_data
+
+# Measure wall time
+start_time = datetime.datetime.now()
+
+# Run the async main function"
+aggregated_results = asyncio.run(main(api_url))
+end_time = datetime.datetime.now()
+wall_time = end_time - start_time
+print(f"Wall time for execution: {wall_time}")
+
+# with this variation we can get it done in 2 seconds. Awesome. However, this has to be run synchronously :(
+
+
+
+
+

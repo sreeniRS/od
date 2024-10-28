@@ -19,39 +19,23 @@ def get_response(query_input: str):
     try:
         query = Query(text=query_input)
         # to get a DICTIONARY RESPONSE
-        json_response = convert_to_odata(query)
-        return json_response
+        values = convert_to_odata(query)
+        return values
     except Exception as e:
         print(f"An error occurred: {e}")
         st.error("Failed to fetch the response from the server.")
         return None
 
-import pandas as pd
-
-import pandas as pd
-
-def parse_json_to_dataframe(json_data):
+def parse_list_to_dataframe(list_data):
     try:
-        # Check if json_data is a dictionary
-        if isinstance(json_data, dict):
-            # Extract the records from the "value" key
-            records = json_data.get("value", [])
-        else:
-            # If it's not a dictionary, we cannot extract records
-            print("Error: Expected json_data to be a dictionary.")
-            return None
-        
-        # If records is not a list, print an error and return None
-        if not isinstance(records, list):
-            print("Error: Expected 'value' to be a list.")
-            return None
-        
         # Convert the list of records to a DataFrame
-        df = pd.DataFrame(records)
+        df = pd.DataFrame(list_data)
         return df
+    
     except Exception as e:
-        print(f"Error occurred while parsing JSON data: {e}")
+        print(f"An error occurred: {e}")
         return None
+
 
 
 # Set page configuration
@@ -131,11 +115,11 @@ with tab1:
             else:
                 with st.spinner("Processing query..."):
                     try:
-                        # Get the XML response as a string
-                        json_response = get_response(query_input)
                         
-                        if json_response:
-                            dataframe = parse_json_to_dataframe(json_response)
+                        list_response = get_response(query_input)
+                        
+                        if list_response:
+                            dataframe = parse_list_to_dataframe(list_response)
                             # if count is not None:
                             #     st.session_state['count'] = count
                             if dataframe is not None and not dataframe.empty:
@@ -158,18 +142,24 @@ with tab1:
 
     # Display results if they exist
     if st.session_state.show_results and st.session_state.last_dataframe is not None:
-        # Display count in bold and larger font
-        # st.subheader("Results Summary")
-        # st.markdown(f"<h2 style='color: #4A4A4A;'>Count: <b>{st.session_state['count']}</b></h2>", unsafe_allow_html=True)
+        num_rows, num_cols = st.session_state.last_dataframe.shape
+       
+        col1, col2 = st.columns(2)
         
-        # Display the DataFrame with specified settings
+        with col1:
+            st.subheader("Number of Rows")
+            st.markdown(f"<h3 style='color: #4A4A4A;'>Number of Rows: <b>{num_rows}</b></h3>", unsafe_allow_html=True)
+            
+        with col2:
+            st.subheader("Number of Columns")
+            st.markdown(f"<h3 style='color: #4A4A4A;'>Number of Columns: <b>{num_cols}</b></h3>", unsafe_allow_html=True)
+        
         st.subheader("Query Results")
         st.dataframe(
             st.session_state.last_dataframe.head(200),
             use_container_width=True,
             height=400
         )
-
 
 with tab2:
     st.subheader("AI Insights")

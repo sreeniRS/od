@@ -1,18 +1,13 @@
-import requests, datetime
-from requests.auth import HTTPBasicAuth
+import json, datetime, asyncio, time
+from aiohttp import ClientSession, BasicAuth
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response  # Import the Response class
 from pydantic import BaseModel
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from typing import List, Tuple, Any, Dict, Optional
-from langchain_core.prompts import MessagesPlaceholder
-from langchain_core.output_parsers import JsonOutputParser
-import json
-
-
+from langchain_core.messages import AIMessage
+from typing import List, Tuple, Dict, Optional
 from langchain.agents.agent_types import AgentType
 from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
+from concurrent.futures import ThreadPoolExecutor
 
 from src.tools.nl_to_odata_tool import nl_to_odata
 from src.aiagents.nl2odata_agent import create_graph
@@ -117,6 +112,8 @@ def convert_to_odata(query: Query):
         {"messages": ("user", query.text)}, stream_mode="values"
     )
     result = []
+    
+    # Extract messages from events and format them
     for event in events:
         for message in event['messages']:
             formatted_message = format_ai_message(message)
@@ -124,38 +121,91 @@ def convert_to_odata(query: Query):
     
     if not result:
         raise HTTPException(status_code=400, detail="Failed to convert query")
-    else:
-        print("No valid content found between newlines")
     
+    print("No valid content found between newlines")
+
+    # Construct the API URL using the last formatted message
     endpoint = 'http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata4/sap/zsb_po_grn_sb4/srvd_a2x/sap/zsd_po_grn_det/0001/ZC_GRN_PO_DET?'
     api_url = endpoint + result[-1] + "&$count=True"
     
-    print(api_url)
-    
-    response_content = call_odata_query(api_url)
-    print(response_content) 
-    return response_content
-
-def call_odata_query(endpoint: str):
-    # Basic authentication credentials
     username = 'RT_F_002'
     password = 'Teched@2024'
-    # Make the request
-    response = requests.get(endpoint, auth=HTTPBasicAuth(username, password))
-    print(response.status_code)
 
-    if response.status_code == 200:
-        try:
-            # Attempt to parse JSON content
-            json_response = response.json()
-            return json_response
-        except ValueError:  # If JSON decoding fails
-            print("Error: Response is not in JSON format.")
-            raise HTTPException(status_code=500, detail="Response is not in JSON format")
-    else:
-        print(f"Error: Received response with status code {response.status_code}")
-        print(response.text)
-        raise HTTPException(status_code=response.status_code, detail="Error fetching OData")
+    # Using ThreadPoolExecutor for running async function in a synchronous context
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        # Track start time
+        start_time = time.time()
+
+        # Call the async function
+        future = executor.submit(run_fetch_data, api_url, username, password)
+        response_content = future.result()  # Get the result of the future
+
+        # Print wall time
+        wall_time = time.time() - start_time
+        print(f"Total execution time: {wall_time:.2f} seconds")
+        
+    return response_content
+
+# def call_odata_query(endpoint: str):
+#     # Basic authentication credentials
+#     username = 'RT_F_002'
+#     password = 'Teched@2024'
+#     # Make the request
+#     response = requests.get(endpoint, auth=HTTPBasicAuth(username, password))
+#     print(response.status_code)
+
+#     if response.status_code == 200:
+#         try:
+#             # Attempt to parse JSON content
+#             json_response = response.json()
+#             return json_response
+#         except ValueError:  # If JSON decoding fails
+#             print("Error: Response is not in JSON format.")
+#             raise HTTPException(status_code=500, detail="Response is not in JSON format")
+#     else:
+#         print(f"Error: Received response with status code {response.status_code}")
+#         print(response.text)
+#         raise HTTPException(status_code=response.status_code, detail="Error fetching OData")
+
+async def fetch_data(api_url, username, password, skiptoken, session):
+    auth = BasicAuth(username, password)
+    # Append the skiptoken to the API URL
+    url_with_skiptoken = f"{api_url}&skiptoken={skiptoken}"
+    async with session.get(url_with_skiptoken, auth=auth) as response:
+        # Ensure you await the response's json() method
+        return await response.json()  # This will return the JSON content
+
+async def call_odata_query(api_url, username, password):
+    aggregated_data = []
+    skiptoken = 0
+
+    async with ClientSession() as session:
+        while True:
+            # Define tasks for batch requests
+            tasks = [
+                fetch_data(api_url, username, password, skiptoken + (i * 100), session)
+                for i in range(5)  # Set concurrency level here
+            ]
+            responses = await asyncio.gather(*tasks)
+
+            # Collect "value" data from responses
+            for response_data in responses:
+                if "value" in response_data:
+                    aggregated_data.extend(response_data["value"])
+
+            # Check if more data exists to fetch
+            # Using the last response to determine if we should continue
+            if not responses or skiptoken >= responses[-1].get("@odata.count", 0):
+                break
+
+            skiptoken += 500  # Increment based on batch size
+
+    return aggregated_data
+
+def run_fetch_data(api_url, username, password):
+    return asyncio.run(call_odata_query(api_url, username, password))
+
+############################## INSIGHTS_AGENT ##########################################################################
 
 class ConversationManager:
     def __init__(self, max_history: int = 3):
