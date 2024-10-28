@@ -5,8 +5,6 @@ from langchain.prompts import ChatPromptTemplate
 
 
 def create_agent_node(agent, state, name):
-    llm = get_llm()
-
     pass
 
 

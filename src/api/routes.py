@@ -55,6 +55,7 @@ def convert_to_odata(query: Query):
                 9) UNIT_COST - This is the amount for the order for a particular line item 
                 10) MATERIAL_DESC - This is the description of the material used
                 11) SUP_NAME - This is the supplier name.
+                12) CURRENCY_CODE - This is the Currency Code which is used for the particular Cost
             Time Period Definitions:
                 - Q1: April 1 to June 30
                 - Q2: July 1 to September 30
@@ -130,7 +131,7 @@ def convert_to_odata(query: Query):
     print(api_url)
     
     response_content = call_odata_query(api_url)
-    print(type(response_content))  
+    print(response_content) 
     return response_content
 
 def call_odata_query(endpoint: str):

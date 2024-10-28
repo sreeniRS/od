@@ -1,39 +1,39 @@
-# Make the request
-import requests
-from requests.auth import HTTPBasicAuth
-import xml.etree.ElementTree as ET
+# # Make the request
+# import requests
+# from requests.auth import HTTPBasicAuth
+# import xml.etree.ElementTree as ET
 
-# Basic authentication credentials
-username = 'DEV_100'
-password = 'Nestle1330$'
+# # Basic authentication credentials
+# username = 'DEV_100'
+# password = 'Nestle1330$'
 
-# Root element for the concatenated XML
-root = ET.Element("root")
+# # Root element for the concatenated XML
+# root = ET.Element("root")
 
-skip_token = 100
-request = f"http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata/sap/ZSB_PO_GRN/ZC_GRN_PO_DET?$skiptoken({skip_token})"
-# Loop through responses while status code is not 400
-while requests.get(request, auth=HTTPBasicAuth(username, password)).status_code != 400 and skip_token:
-    response = requests.get("http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata/sap/ZSB_PO_GRN/ZC_GRN_PO_DET?", auth=HTTPBasicAuth(username, password))
+# skip_token = 100
+# request = f"http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata/sap/ZSB_PO_GRN/ZC_GRN_PO_DET?$skiptoken({skip_token})"
+# # Loop through responses while status code is not 400
+# while requests.get(request, auth=HTTPBasicAuth(username, password)).status_code != 400 and skip_token:
+#     response = requests.get("http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata/sap/ZSB_PO_GRN/ZC_GRN_PO_DET?", auth=HTTPBasicAuth(username, password))
     
-    # Parse the XML content
-    response_xml = ET.fromstring(response.text)
+#     # Parse the XML content
+#     response_xml = ET.fromstring(response.text)
     
-    # Add the response's root elements to the main root element
-    for element in response_xml:
-        root.append(element)
+#     # Add the response's root elements to the main root element
+#     for element in response_xml:
+#         root.append(element)
     
-    skip_token+=100
+#     skip_token+=100
 
-# Convert the concatenated XML to a string and save to a file
-tree = ET.ElementTree(root)
-tree.write("concatenated_output.xml")
+# # Convert the concatenated XML to a string and save to a file
+# tree = ET.ElementTree(root)
+# tree.write("concatenated_output.xml")
 
-print("Concatenated XML data has been saved to concatenated_output.xml")
+# print("Concatenated XML data has been saved to concatenated_output.xml")
 
-root = ET.fromstring(response.text)
-with open('./root.xml', 'w') as f:
-    f.write(response.text)
+# root = ET.fromstring(response.text)
+# with open('./root.xml', 'w') as f:
+#     f.write(response.text)
 
 # print(response.status_code)
 

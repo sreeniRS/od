@@ -18,7 +18,7 @@ if 'count' not in st.session_state:
 def get_response(query_input: str):
     try:
         query = Query(text=query_input)
-        # Call the FastAPI endpoint to get a DICTIONARY RESPONSE
+        # to get a DICTIONARY RESPONSE
         json_response = convert_to_odata(query)
         return json_response
     except Exception as e:
