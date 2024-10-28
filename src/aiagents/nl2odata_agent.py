@@ -51,3 +51,4 @@ def create_graph(assistant_runnable, tools):
     builder.add_edge("tools", "Text2Odata")
 
     return builder.compile()
+

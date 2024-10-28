@@ -2,4 +2,8 @@
 
 Can I have the list of orders booked in the last quarter of 2024?
 Can I have the detail of 50 orders from January 2023 to March 2023
+Fetch the details of supplier 10000012 and purchase group 101 and purchase org 2000
 Can I have 50 orders from January to September 2024 with columns order no, supplier no, supplier name, material, material description and unit cost?
+
+
+Give me the data for both Q1 and Q3 for FY2024
