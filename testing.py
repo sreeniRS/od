@@ -55,30 +55,30 @@
 
 
 
-import requests
-from requests.auth import HTTPBasicAuth
-from fastapi import HTTPException
+# import requests
+# from requests.auth import HTTPBasicAuth
+# from fastapi import HTTPException
 
-def call_odata_query(endpoint: str):
-    # Basic authentication credentials
-    username = 'RT_F_002'
-    password = 'Teched@2024'
-    # Make the request
-    response = requests.get(endpoint, auth=HTTPBasicAuth(username, password))
-    print(response.status_code)
+# def call_odata_query(endpoint: str):
+#     # Basic authentication credentials
+#     username = 'RT_F_002'
+#     password = 'Teched@2024'
+#     # Make the request
+#     response = requests.get(endpoint, auth=HTTPBasicAuth(username, password))
+#     print(response.status_code)
 
-    if response.status_code == 200:
-        try:
-            # Attempt to parse JSON content
-            json_response = response.json()
-            return json_response
-        except ValueError:  # If JSON decoding fails
-            print("Error: Response is not in JSON format.")
-            raise HTTPException(status_code=500, detail="Response is not in JSON format")
-    else:
-        print(f"Error: Received response with status code {response.status_code}")
-        print(response.text)
-        raise HTTPException(status_code=response.status_code, detail="Error fetching OData")
+#     if response.status_code == 200:
+#         try:
+#             # Attempt to parse JSON content
+#             json_response = response.json()
+#             return json_response
+#         except ValueError:  # If JSON decoding fails
+#             print("Error: Response is not in JSON format.")
+#             raise HTTPException(status_code=500, detail="Response is not in JSON format")
+#     else:
+#         print(f"Error: Received response with status code {response.status_code}")
+#         print(response.text)
+#         raise HTTPException(status_code=response.status_code, detail="Error fetching OData")
 
     
 # result = f"$filter=CreateDate ge '20231001' and CreateDate le '20231231'"
@@ -128,57 +128,190 @@ api_url = endpoint + result + f"&$count=True"
 username = 'RT_F_002'
 password = 'Teched@2024'
 
-from aiohttp import ClientSession, BasicAuth
-import asyncio
-import json
-import datetime
+# from aiohttp import ClientSession, BasicAuth
+# import asyncio
+# import json
+# import datetime
 
-async def fetch_data(api_url, skiptoken, session):
-    url = f"{api_url}&skiptoken={skiptoken}"
-    async with session.get(url, auth = BasicAuth(username, password)) as response:
-        return await response.json()
+# async def fetch_data(api_url, skiptoken, session):
+#     url = f"{api_url}&skiptoken={skiptoken}"
+#     async with session.get(url, auth = BasicAuth(username, password)) as response:
+#         return await response.json()
 
-async def main(api_url):
-    aggregated_data = []
-    skiptoken = 0
+# async def main(api_url):
+#     aggregated_data = []
+#     skiptoken = 0
 
-    async with ClientSession() as session:
-        while True:
-            # Define tasks for batch requests
-            tasks = [
-                fetch_data(api_url, skiptoken + (i * 100), session)
-                for i in range(5)  # Set concurrency level here
-            ]
-            responses = await asyncio.gather(*tasks)
+#     async with ClientSession() as session:
+#         while True:
+#             # Define tasks for batch requests
+#             tasks = [
+#                 fetch_data(api_url, skiptoken + (i * 100), session)
+#                 for i in range(5)  # Set concurrency level here
+#             ]
+#             responses = await asyncio.gather(*tasks)
 
-            # Collect "value" data from responses
-            for response_data in responses:
-                if "value" in response_data:
-                    aggregated_data.extend(response_data["value"])
+#             # Collect "value" data from responses
+#             for response_data in responses:
+#                 if "value" in response_data:
+#                     aggregated_data.extend(response_data["value"])
 
-            # Check if more data exists to fetch
-            skiptoken += 500  # Increment based on batch size
-            if skiptoken >= responses[-1].get("@odata.count", skiptoken):
-                break
+#             # Check if more data exists to fetch
+#             skiptoken += 500  # Increment based on batch size
+#             if skiptoken >= responses[-1].get("@odata.count", skiptoken):
+#                 break
 
-    # Write aggregated data to a JSON file for verification
-    with open('./aggregated_values.json', 'w') as file:
-        json.dump({"value": aggregated_data}, file, indent=4)
+#     # Write aggregated data to a JSON file for verification
+#     with open('./aggregated_values.json', 'w') as file:
+#         json.dump({"value": aggregated_data}, file, indent=4)
 
-    return aggregated_data
+#     return aggregated_data
 
-# Measure wall time
-start_time = datetime.datetime.now()
+# # Measure wall time
+# start_time = datetime.datetime.now()
 
-# Run the async main function"
-aggregated_results = asyncio.run(main(api_url))
-end_time = datetime.datetime.now()
-wall_time = end_time - start_time
-print(f"Wall time for execution: {wall_time}")
+# # Run the async main function"
+# aggregated_results = asyncio.run(main(api_url))
+# end_time = datetime.datetime.now()
+# wall_time = end_time - start_time
+# print(f"Wall time for execution: {wall_time}")
 
 # with this variation we can get it done in 2 seconds. Awesome. However, this has to be run synchronously :(
 
 
 
 
+# import asyncio
+# from aiohttp import ClientSession, BasicAuth
+# from fastapi import HTTPException
+
+# async def fetch_data(session, url):
+#     async with session.get(url) as response:
+#         if response.status == 200:
+#             try:
+#                 return await response.json()
+#             except Exception:
+#                 print("Error: Response is not in JSON format.")
+#                 raise HTTPException(status_code=500, detail="Response is not in JSON format")
+#         else:
+#             print(f"Error: Received response with status code {response.status}")
+#             raise HTTPException(status_code=response.status, detail="Error fetching OData")
+
+# async def call_odata_query(endpoint: str, username: str, password: str):
+#     aggregated_data = []
+#     skiptoken = 0
+#     total_count = None  # Will be set to @odata.count from the first response
+
+#     async with ClientSession(auth=BasicAuth(username, password)) as session:
+#         while True:
+#             url = f"{endpoint}&$skip={skiptoken}"
+#             response_data = await fetch_data(session, url)
+
+#             # Initialize total_count with @odata.count from the first response
+#             if total_count is None and "@odata.count" in response_data:
+#                 total_count = response_data["@odata.count"]
+
+#             # Append values if they exist in the response
+#             if "value" in response_data:
+#                 aggregated_data.extend(response_data["value"])
+#                 skiptoken += 100  # Move to the next set of 100 items
+#             else:
+#                 break
+
+#             # Stop fetching if skiptoken exceeds total_count
+#             if total_count is not None and skiptoken >= total_count:
+#                 break
+
+#     return aggregated_data
+
+# # Example usage with endpoint and authentication details
+# async def main():
+#     username = 'RT_F_002'
+#     password = 'Teched@2024'
+#     result = "$filter=CreateDate ge '20231001' and CreateDate le '20231231'"
+#     endpoint = "http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata4/sap/zsb_po_grn_sb4/srvd_a2x/sap/zsd_po_grn_det/0001/ZC_GRN_PO_DET?"
+#     api_url = f"{endpoint}{result}&$count=True"
+
+#     # Call the asynchronous OData query function
+#     aggregated_json = await call_odata_query(api_url, username, password)
+#     print(len(aggregated_json))
+
+# import datetime
+# # Run the main function
+# start_time = datetime.datetime.now()
+# asyncio.run(main())
+# print("Walltime:", datetime.datetime.now() - start_time)
+
+
+import asyncio
+from aiohttp import ClientSession, BasicAuth
+from fastapi import HTTPException
+import datetime
+
+async def fetch_data(session, url):
+    async with session.get(url) as response:
+        if response.status == 200:
+            try:
+                return await response.json()
+            except Exception:
+                print("Error: Response is not in JSON format.")
+                raise HTTPException(status_code=500, detail="Response is not in JSON format")
+        else:
+            print(f"Error: Received response with status code {response.status}")
+            raise HTTPException(status_code=response.status, detail="Error fetching OData")
+
+async def call_odata_query(endpoint: str, username: str, password: str):
+    aggregated_data = []
+    skiptoken = 0
+    total_count = None  # Will be set to @odata.count from the first response
+    batch_size = 5  # Number of requests to send concurrently
+
+    async with ClientSession(auth=BasicAuth(username, password)) as session:
+        while True:
+            # Create batch of requests
+            tasks = [
+                fetch_data(session, f"{endpoint}&$skip={skiptoken + i * 100}")
+                for i in range(batch_size)
+            ]
+            responses = await asyncio.gather(*tasks)
+
+            for response_data in responses:
+                if response_data:
+                    # Initialize total_count from the first response
+                    if total_count is None and "@odata.count" in response_data:
+                        total_count = response_data["@odata.count"]
+
+                    # Append values if they exist in the response
+                    if "value" in response_data:
+                        aggregated_data.extend(response_data["value"])
+
+                    # Stop fetching if skiptoken exceeds total_count
+                    if total_count is not None and skiptoken >= total_count:
+                        break
+
+            # Move to the next set of data by increasing skiptoken by batch_size * 100
+            skiptoken += batch_size * 100
+
+            # Stop if all data has been fetched
+            if total_count is not None and skiptoken >= total_count:
+                break
+
+    return aggregated_data
+
+# Example usage with endpoint and authentication details
+async def main():
+    username = 'RT_F_002'
+    password = 'Teched@2024'
+    result = "$filter=CreateDate ge '20231001' and CreateDate le '20231231'"
+    endpoint = "http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata4/sap/zsb_po_grn_sb4/srvd_a2x/sap/zsd_po_grn_det/0001/ZC_GRN_PO_DET?"
+    api_url = f"{endpoint}{result}&$count=True"
+
+    # Call the asynchronous OData query function
+    aggregated_json = await call_odata_query(api_url, username, password)
+    print("Total items fetched:", len(aggregated_json))
+
+# Run the main function and measure wall time
+start_time = datetime.datetime.now()
+asyncio.run(main())
+print("Walltime:", datetime.datetime.now() - start_time)
 

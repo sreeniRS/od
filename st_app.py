@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from src.api.routes import convert_to_odata, Query  # Adjust import based on your structure
-from src.api.insights_generation import insights_generation, ConversationManager
+from src.api.routes import insights_generation, ConversationManager
 
 
 if 'data' not in st.session_state:

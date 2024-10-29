@@ -122,11 +122,12 @@ def convert_to_odata(query: Query):
     if not result:
         raise HTTPException(status_code=400, detail="Failed to convert query")
     
-    print("No valid content found between newlines")
 
     # Construct the API URL using the last formatted message
     endpoint = 'http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata4/sap/zsb_po_grn_sb4/srvd_a2x/sap/zsd_po_grn_det/0001/ZC_GRN_PO_DET?'
     api_url = endpoint + result[-1] + "&$count=True"
+    
+    print(api_url)
     
     username = 'RT_F_002'
     password = 'Teched@2024'
@@ -146,59 +147,53 @@ def convert_to_odata(query: Query):
         
     return response_content
 
-# def call_odata_query(endpoint: str):
-#     # Basic authentication credentials
-#     username = 'RT_F_002'
-#     password = 'Teched@2024'
-#     # Make the request
-#     response = requests.get(endpoint, auth=HTTPBasicAuth(username, password))
-#     print(response.status_code)
+async def fetch_data(session, url):
+    async with session.get(url) as response:
+        if response.status == 200:
+            try:
+                return await response.json()
+            except Exception:
+                print("Error: Response is not in JSON format.")
+                raise HTTPException(status_code=500, detail="Response is not in JSON format")
+        else:
+            print(f"Error: Received response with status code {response.status}")
+            raise HTTPException(status_code=response.status, detail="Error fetching OData")
 
-#     if response.status_code == 200:
-#         try:
-#             # Attempt to parse JSON content
-#             json_response = response.json()
-#             return json_response
-#         except ValueError:  # If JSON decoding fails
-#             print("Error: Response is not in JSON format.")
-#             raise HTTPException(status_code=500, detail="Response is not in JSON format")
-#     else:
-#         print(f"Error: Received response with status code {response.status_code}")
-#         print(response.text)
-#         raise HTTPException(status_code=response.status_code, detail="Error fetching OData")
-
-async def fetch_data(api_url, username, password, skiptoken, session):
-    auth = BasicAuth(username, password)
-    # Append the skiptoken to the API URL
-    url_with_skiptoken = f"{api_url}&skiptoken={skiptoken}"
-    async with session.get(url_with_skiptoken, auth=auth) as response:
-        # Ensure you await the response's json() method
-        return await response.json()  # This will return the JSON content
-
-async def call_odata_query(api_url, username, password):
+async def call_odata_query(endpoint: str, username: str, password: str):
     aggregated_data = []
     skiptoken = 0
+    total_count = None  # Will be set to @odata.count from the first response
+    batch_size = 5  # Number of requests to send concurrently
 
-    async with ClientSession() as session:
+    async with ClientSession(auth=BasicAuth(username, password)) as session:
         while True:
-            # Define tasks for batch requests
+            # Create batch of requests
             tasks = [
-                fetch_data(api_url, username, password, skiptoken + (i * 100), session)
-                for i in range(5)  # Set concurrency level here
+                fetch_data(session, f"{endpoint}&$skip={skiptoken + i * 100}")
+                for i in range(batch_size)
             ]
             responses = await asyncio.gather(*tasks)
 
-            # Collect "value" data from responses
             for response_data in responses:
-                if "value" in response_data:
-                    aggregated_data.extend(response_data["value"])
+                if response_data:
+                    # Initialize total_count from the first response
+                    if total_count is None and "@odata.count" in response_data:
+                        total_count = response_data["@odata.count"]
 
-            # Check if more data exists to fetch
-            # Using the last response to determine if we should continue
-            if not responses or skiptoken >= responses[-1].get("@odata.count", 0):
+                    # Append values if they exist in the response
+                    if "value" in response_data:
+                        aggregated_data.extend(response_data["value"])
+
+                    # Stop fetching if skiptoken exceeds total_count
+                    if total_count is not None and skiptoken >= total_count:
+                        break
+
+            # Move to the next set of data by increasing skiptoken by batch_size * 100
+            skiptoken += batch_size * 100
+
+            # Stop if all data has been fetched
+            if total_count is not None and skiptoken >= total_count:
                 break
-
-            skiptoken += 500  # Increment based on batch size
 
     return aggregated_data
 
