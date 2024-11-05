@@ -273,7 +273,8 @@ def insights_generation(prompt: str, df: pd.DataFrame, conversation_manager: Opt
         agent = create_pandas_dataframe_agent(
             llm=get_llm(),
             df = df,
-            verbose=True, 
+            verbose=True,
+            #include_df_in_prompt=False,
             agent_type=AgentType.OPENAI_FUNCTIONS,
             allow_dangerous_code=True
         )
@@ -281,13 +282,19 @@ def insights_generation(prompt: str, df: pd.DataFrame, conversation_manager: Opt
         #json compliant string format
         safe_prompt = prompt.replace('\n', '\\n') + "\nPlease respond in Json format with keys 'reasoning', 'code', and 'output'."
 
+        print(f"the final prompt is : {safe_prompt}")
+
         ai_response = agent.invoke(safe_prompt)
+
+        print(f"ai response : {ai_response}")
 
         #printing the raw response
         #print(f"Raw AI response: {ai_response}")
         #
         #Extract the output for processing
         response_content = ai_response.get("output")
+
+        print(f"response_content : {response_content}")
 
         if not response_content:
             raise ValueError("No output received from the agent")
