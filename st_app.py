@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from src.api.routes import convert_to_odata, Query  # Adjust import based on your structure
-from src.api.routes import insights_generation, ConversationManager
+from src.api.insights_generation import insights_generation, ConversationManager
 
 
 if 'data' not in st.session_state:
@@ -147,16 +147,14 @@ with tab1:
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("Number of Rows")
             st.markdown(f"<h3 style='color: #4A4A4A;'>Number of Rows: <b>{num_rows}</b></h3>", unsafe_allow_html=True)
             
         with col2:
-            st.subheader("Number of Columns")
             st.markdown(f"<h3 style='color: #4A4A4A;'>Number of Columns: <b>{num_cols}</b></h3>", unsafe_allow_html=True)
         
         st.subheader("Query Results")
         st.dataframe(
-            st.session_state.last_dataframe.head(200),
+            st.session_state.last_dataframe.head(10000),
             use_container_width=True,
             height=400
         )
@@ -227,7 +225,7 @@ with tab3:
 
         # Chart type selection
         chart_type = st.selectbox('Select chart type:', [
-            'Line', 'Bar', 'Stacked Bar', 'Grouped Bar', 'Horizontal Bar', 'Scatter', 'Histogram', 'Pie', 'Box', 'Heatmap', 'Violin', 'Sunburst', 'Bubble', 'Area', 'Radar', 'Funnel', 'Density', 'Contour', 'Treemap'])
+            'Line', 'Bar', 'Stacked Bar', 'Grouped Bar'])
         st.session_state['chart_type'] = chart_type
 
         # Select x-axis column inside the tab
@@ -249,13 +247,14 @@ with tab3:
                 fig = px.line(st.session_state['last_dataframe'], x=st.session_state['x_col'], y=st.session_state['y_cols'])
             elif st.session_state['chart_type'] == 'Bar':
                 fig = px.bar(st.session_state['last_dataframe'], x=st.session_state['x_col'], y=st.session_state['y_cols'])
+                fig = fig.update_yaxes(autorange=True)
             elif st.session_state['chart_type'] == 'Stacked Bar':
                 fig = px.bar(st.session_state['last_dataframe'], x=st.session_state['x_col'], y=st.session_state['y_cols'], text_auto=True)
                 fig.update_layout(barmode='stack')
             elif st.session_state['chart_type'] == 'Grouped Bar':
                 fig = px.bar(st.session_state['last_dataframe'], x=st.session_state['x_col'], y=st.session_state['y_cols'], text_auto=True)
                 fig.update_layout(barmode='group')
-
+            
         # Render the figure if created
         if fig:
             st.plotly_chart(fig)

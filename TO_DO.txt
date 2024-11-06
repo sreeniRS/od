@@ -11,18 +11,9 @@ Insights:
 - Explain some basic points within the insights 
         
 
-CDS View -> Storing it in a Database
-
-Insights Generation -> Search Tool (Based on user query, the name of the database its looking for) -> Database Read of Dataframe (in the form of chunks) -> 
-
-100 Rows, 200 Rows
-
-2000, 3000 rows
-
-context 2000/100 = 20 (Sequential Agents in Parallel) -> Results would be passed to the final agent which would do the aggregate calculation
 
 
-If one operation is asking average of all the columns in one particular dataframe
+
 
 
 

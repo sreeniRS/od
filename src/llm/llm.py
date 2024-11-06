@@ -1,9 +1,9 @@
-from src.utils.appconfig import AppConfig
+from src.utils.appconfig import get_config_instance
 from src.utils.azureai import AzureAI
 from langchain_core.prompts import ChatPromptTemplate
 
 
-config = AppConfig()
+config = get_config_instance()
 azure_ai = AzureAI(config)
 
 llm = None

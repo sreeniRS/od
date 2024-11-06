@@ -2,7 +2,9 @@ import os
 from os.path import join, dirname, exists
 from dotenv import load_dotenv
 from cfenv import AppEnv
-import json
+import json, base64, requests
+
+config_instance = None
 
 class AppConfig:
     def __init__(self):
@@ -29,23 +31,14 @@ class AppConfig:
         self.SAP_CLIENT_SECRET = self.get_env_var("SAP_CLIENT_SECRET")
         self.SAP_ENDPOINT_URL_GPT4O = self.get_env_var("SAP_ENDPOINT_URL_GPT4O")
         self.SAP_EMBEDDING_ENDPOINT_URL = self.get_env_var("SAP_EMBEDDING_ENDPOINT_URL")
-        self.HDB_USER = self.get_env_var("HDB_USER")
-        self.HDB_HOST = self.get_env_var("HDB_HOST")
-        self.HDB_PASSWORD = self.get_env_var("HDB_PASSWORD")
-        self.HDB_PORT = self.get_env_var("HDB_PORT")
+        
+        self.ODATA_USERNAME = self.get_env_var("ODATA_USERNAME")
+        self.ODATA_PASSWORD = self.get_env_var("ODATA_PASSWORD")
+        self.ODATA_ENDPOINT = self.get_env_var("ODATA_ENDPOINT")
 
     def _load_production_env(self):
         cenv = AppEnv()
         self._load_common_env()
-
-        hana = cenv.get_service(name=os.getenv("HANA_SERVICE_NAME", 'hdb-schema'))
-        if hana:
-            self.HDB_USER = hana.credentials["user"]
-            self.HDB_PASSWORD = hana.credentials["password"]
-            self.HDB_HOST = hana.credentials["host"]
-            self.HDB_PORT = hana.credentials["port"]
-        else:
-            raise ValueError("HANA service not found. Please check your environment configuration.")
 
         genai = cenv.get_service(name=os.getenv("AICORE_SERVICE_NAME", "aicore"))
         if genai:
@@ -56,11 +49,26 @@ class AppConfig:
             #Model Endpoints
             # self.SAP_ENDPOINT_URL_GPT35 = f"{genai.credentials['serviceurls']['AI_API_URL']}/v2/inference/deployments/{self.get_env_var('AZURE_DEPLOYMENT_ID')}/chat/completions?api-version={self.SAP_API_VERSION}"
             self.SAP_ENDPOINT_URL_GPT4O = f"{genai.credentials['serviceurls']['AI_API_URL']}/v2/inference/deployments/{self.get_env_var('AZURE_DEPLOYMENT_ID_4O')}/chat/completions?api-version={self.SAP_API_VERSION}"
-            
+
             #Embedding Endpoints
             self.SAP_EMBEDDING_ENDPOINT_URL = f"{genai.credentials['serviceurls']['AI_API_URL']}/v2/inference/deployments/{self.get_env_var('AZURE_EMBEDDING_DEPLOYMENT_ID')}/embeddings?api-version={self.SAP_API_VERSION}"
         else:
             raise ValueError("AI Core service not found. Please check your environment configuration.")
+        
+        #Setting up the Destination service variable
+        destination_service = cenv.get_service(name = "odata-service")
+        destination_name = "scp"
+
+        if destination_service:
+            client_url = destination_service['clientid']+":"+ destination_service["clientsecret"]
+            basic_auth_header = 'Basic ' + base64.b64encode(client_url.encode()).decode()
+            self.ODATA_HEADERS = {'Authorization': basic_auth_header}
+            r = requests.get(destination_service.credentials["uri"] + '/destination-configuration/v1/destinations/' + destination_name, headers=self.ODATA_HEADERS)
+            
+            #get the details of auth
+            destination = r.json()
+            self.ODATA_ENDPOINT = destination["destinationConfiguration"]["URL"] + "/secure/"
+
 
     def _load_common_env(self):
         # Common SAP GPT Details
@@ -84,7 +92,13 @@ class AppConfig:
         data = self.__dict__.copy()
         return json.dumps(data, indent=4)
     
+def get_config_instance():
+       global config_instance
+       if config_instance is None:
+            config_instance = AppConfig()
+       
+       return config_instance
 
 if __name__ == "__main__":
-    app = AppConfig()
+    app = get_config_instance()
     print(f"If LOCAL? : {app.LOCAL_ENV}")

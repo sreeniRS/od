@@ -7,12 +7,12 @@ from langchain_core.messages import AIMessage
 from typing import List, Tuple, Dict, Optional
 from langchain.agents.agent_types import AgentType
 from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
-from concurrent.futures import ThreadPoolExecutor
+
 
 from src.tools.nl_to_odata_tool import nl_to_odata
 from src.aiagents.nl2odata_agent import create_graph
 from src.llm.llm import get_llm
-import pandas as pd
+from src.utils.call import call_odata
 
 
 router = APIRouter()
@@ -53,7 +53,7 @@ def convert_to_odata(query: Query):
                 9) UNIT_COST - This is the amount for the order for a particular line item 
                 10) MATERIAL_DESC - This is the description of the material used
                 11) SUP_NAME - This is the supplier name.
-                12) CURRENCY_CODE - This is the Currency Code which is used for the particular Cost
+                
             Time Period Definitions:
                 - Q1: April 1 to June 30
                 - Q2: July 1 to September 30
@@ -74,12 +74,13 @@ def convert_to_odata(query: Query):
             Rules:
                 - Use $apply for aggregations/grouping
                 - Handle date ranges in YYYYMMDD format
-                - Enclose values in single quotes
+                - Enclose values in single quotes.
+                
             Examples:
                 User: Show total orders by supplier
                 Thought: Need grouping by supplier with order count
                 Action: nl_to_odata("group by supplier and count orders")
-                Response: $apply=groupby((SUPPLIER),aggregate(ORDER_NO with count as Total))
+                Response: $apply=groupby((SUPPLIER, CURRENCY),aggregate(ORDER_NO with count as Total))
 
                 User: Find orders from supplier ABC created in 2023
                 Thought: Need filter for supplier and date range
@@ -97,7 +98,7 @@ def convert_to_odata(query: Query):
                 Response: $filter=CreateDate ge '20230401' and CreateDate le '20230930'
                 
                 *** OUTPUT ONLY THE ODATA QUERY ****
-                
+
                     """,
         ),
         ("placeholder", "{messages}"),
@@ -124,196 +125,14 @@ def convert_to_odata(query: Query):
     
 
     # Construct the API URL using the last formatted message
-    endpoint = 'http://INAWCONETPUT1.atrapa.deloitte.com:8000/sap/opu/odata4/sap/zsb_po_grn_sb4/srvd_a2x/sap/zsd_po_grn_det/0001/ZC_GRN_PO_DET?'
-    api_url = endpoint + result[-1] + "&$count=True"
+    filter = result[-1] + "&$count=True"
     
-    print(api_url)
+    print(filter)
+
+    return call_odata(filter)    
     
-    username = 'RT_F_002'
-    password = 'Teched@2024'
-
-    # Using ThreadPoolExecutor for running async function in a synchronous context
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        # Track start time
-        start_time = time.time()
-
-        # Call the async function
-        future = executor.submit(run_fetch_data, api_url, username, password)
-        response_content = future.result()  # Get the result of the future
-
-        # Print wall time
-        wall_time = time.time() - start_time
-        print(f"Total execution time: {wall_time:.2f} seconds")
-        
-    return response_content
-
-async def fetch_data(session, url):
-    async with session.get(url) as response:
-        if response.status == 200:
-            try:
-                return await response.json()
-            except Exception:
-                print("Error: Response is not in JSON format.")
-                raise HTTPException(status_code=500, detail="Response is not in JSON format")
-        else:
-            print(f"Error: Received response with status code {response.status}")
-            raise HTTPException(status_code=response.status, detail="Error fetching OData")
-
-async def call_odata_query(endpoint: str, username: str, password: str):
-    aggregated_data = []
-    skiptoken = 0
-    total_count = None  # Will be set to @odata.count from the first response
-    batch_size = 5  # Number of requests to send concurrently
-
-    async with ClientSession(auth=BasicAuth(username, password)) as session:
-        while True:
-            # Create batch of requests
-            tasks = [
-                fetch_data(session, f"{endpoint}&$skip={skiptoken + i * 100}")
-                for i in range(batch_size)
-            ]
-            responses = await asyncio.gather(*tasks)
-
-            for response_data in responses:
-                if response_data:
-                    # Initialize total_count from the first response
-                    if total_count is None and "@odata.count" in response_data:
-                        total_count = response_data["@odata.count"]
-
-                    # Append values if they exist in the response
-                    if "value" in response_data:
-                        aggregated_data.extend(response_data["value"])
-
-                    # Stop fetching if skiptoken exceeds total_count
-                    if total_count is not None and skiptoken >= total_count:
-                        break
-
-            # Move to the next set of data by increasing skiptoken by batch_size * 100
-            skiptoken += batch_size * 100
-
-            # Stop if all data has been fetched
-            if total_count is not None and skiptoken >= total_count:
-                break
-
-    return aggregated_data
-
-def run_fetch_data(api_url, username, password):
-    return asyncio.run(call_odata_query(api_url, username, password))
 
 ############################## INSIGHTS_AGENT ##########################################################################
-
-class ConversationManager:
-    def __init__(self, max_history: int = 3):
-        self.conversation_history: List[Tuple[str, str]] = []
-        self.max_history = max_history
-        self.dataframe_storage: Dict[str, pd.DataFrame] = {}
-        
-    def store_dataframe(self, df: pd.DataFrame, name: Optional[str] = None) -> str:
-        """
-        Store a DataFrame with a unique identifier or custom name.
-        Returns the storage key.
-        """
-        if name is None:
-            name = f"df_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
-        self.dataframe_storage[name] = df
-        return name
-    
-    def get_dataframe(self, name: str) -> Optional[pd.DataFrame]:
-        """Retrieve a stored DataFrame by its name."""
-        return self.dataframe_storage.get(name)
-    
-    def list_stored_dataframes(self) -> List[str]:
-        """List all stored DataFrame identifiers."""
-        return list(self.dataframe_storage.keys())
-    
-    def add_message(self, role: str, content: str):
-        """Add a message to conversation history and maintain max history length."""
-        self.conversation_history.append((role, content))
-        if len(self.conversation_history) > self.max_history:
-            self.conversation_history = self.conversation_history[-self.max_history:]
-    
-    #def convert_to_messages(self) -> List[Any]:
-    #   """Convert conversation history to LangChain message objects."""
-    #    message_objects = []
-    #   for role, content in self.conversation_history:
-    #        if role == "user":
-    #            message_objects.append(HumanMessage(content=content))
-    #        elif role == "assistant":
-    #            message_objects.append(AIMessage(content=content))
-    #   return message_objects
-    
-    #def format_dataframe_info(self, df: pd.DataFrame) -> str:
-    #    """Format DataFrame with a row limit to avoid overloading the LLM context."""
-    #    info = []
-    #    info.append(f"Shape: {df.shape[0]} rows × {df.shape[1]} columns")
-    #    info.append(f"Columns: {', '.join(df.columns.tolist())}")
-        
-        # Set a row limit for safety (e.g., only include the first 100 rows)
-    #    row_limit = 100
-    #    if df.shape[0] > row_limit:
-    #        info.append(f"\nDisplaying the first {row_limit} rows (of {df.shape[0]}):")
-    #        info.append(df.head(row_limit).to_string())
-    #    else:
-    #        info.append("\nComplete Data:")
-    #       info.append(df.to_string())
-        
-    #    return "\n".join(info)
-
-def insights_generation(prompt: str, df: pd.DataFrame, conversation_manager: Optional[ConversationManager] = None) -> dict:
-    if conversation_manager is None:
-        conversation_manager = ConversationManager()
-    
-    try:
-        df_key = conversation_manager.store_dataframe(df)
-        #formatted_data = conversation_manager.format_dataframe_info(df)
-        #user_message = f"{prompt}\nDataFrame '{df_key}':\n{formatted_data}"
-        conversation_manager.add_message("user", prompt)
-
-        agent = create_pandas_dataframe_agent(
-            llm=get_llm(),
-            df = df,
-            verbose=True, 
-            agent_type=AgentType.OPENAI_FUNCTIONS,
-            allow_dangerous_code=True
-        )
-
-        #json compliant string format
-        safe_prompt = prompt.replace('\n', '\\n') + "\nPlease respond in Json format with keys 'reasoning', 'code', and 'output'."
-
-        ai_response = agent.invoke(safe_prompt)
-
-        #printing the raw response
-        #print(f"Raw AI response: {ai_response}")
-        #
-        #Extract the output for processing
-        response_content = ai_response.get("output")
-
-        if not response_content:
-            raise ValueError("No output received from the agent")
-
-
-        # Remove Markdown formatting if present
-        if response_content.startswith("```json"):
-            response_content = response_content[7:]  # Remove initial ```json
-        if response_content.endswith("```"):
-            response_content = response_content[:-3]  # Remove trailing ```
-
-        try:
-            #respose_content = ai_response.get("arguments", "")
-            parsed_output = json.loads(response_content.strip())
-            # Add Ai response to the conversational history
-            conversation_manager.add_message("assistant", response_content)
-            return parsed_output
-        except json.JSONDecodeError:
-            print(f"Non -Json Response: {response_content}")
-            return {"reasoning": "Received plain text insted of Json",
-                    "code": "400",
-                    "output": None}
-        
-    except Exception as e:
-        print(f"Error: {e}")
-        return {"reasoning": str(e), "code": "500", "output":None}
         #formatted_prompt = prompt_template.format_messages(
         #    history=conversation_manager.convert_to_messages(),
         #    prompt=prompt,
