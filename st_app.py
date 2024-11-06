@@ -200,9 +200,18 @@ with tab2:
                                     st.code(ai_response.get("code"))
 
                             # Show the output in a prominent section
-                            if ai_response.get("output"):
-                                st.markdown("### Result", unsafe_allow_html=True)  # Add a header for the result
-                                st.success(ai_response.get("output"))  # Display output in a success message style
+                            output = ai_response.get("output")
+                            if output:
+                                try:
+                                    output_df = pd.DataFrame(output)
+                                    st.markdown("### Result", unsafe_allow_html=True)
+                                    st.dataframe(output_df)
+                                    #if ai_response.get("output"):
+                                    #    st.markdown("### Result", unsafe_allow_html=True)  # Add a header for the result
+                                    #   st.success(ai_response.get("output"))  # Display output in a success message style
+                                except ValueError:
+                                    st.markdown("### Result", unsafe_allow_html=True)
+                                    st.success(output)
 
                         # Handle the case where no insights are available
                     else:
