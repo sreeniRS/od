@@ -71,20 +71,24 @@ def run_fetch_data(api_url):
 
 def call_odata(filter: str):
     # Get the username and password from the config
-    endpoint = config.ODATA_ENDPOINT
+    try:
+        if config.ODATA_ENDPOINT is None:
+            raise HTTPException("ENDPOINT IS NULL. PLEASE CHECK ENV VARS")
 
-    api_url = endpoint + filter
-    # Using ThreadPolExecutor for running async function in a synchronous context
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        # Track start time
-        start_time = time.time()
+        api_url = config.ODATA_ENDPOINT + filter
+        # Using ThreadPolExecutor for running async function in a synchronous context
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            # Track start time
+            start_time = time.time()
 
-        # Call the async function
-        future = executor.submit(run_fetch_data, api_url)
-        response_content = future.result()  # Get the result of the future
+            # Call the async function
+            future = executor.submit(run_fetch_data, api_url)
+            response_content = future.result()  # Get the result of the future
 
-        # Print wall time
-        wall_time = time.time() - start_time
-        print(f"Total execution time: {wall_time:.2f} seconds")
-        
-    return response_content
+            # Print wall time
+            wall_time = time.time() - start_time
+            print(f"Total execution time: {wall_time:.2f} seconds")
+            
+        return response_content
+    except Exception as e:
+        raise HTTPException(f"An error has occured. Please check through your implementations {e}")

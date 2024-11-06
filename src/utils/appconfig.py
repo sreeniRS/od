@@ -57,10 +57,10 @@ class AppConfig:
         
         #Setting up the Destination service variable
         destination_service = cenv.get_service(name = "odata-service")
-        destination_name = "scp"
+        destination_name = "odata-service"
 
         if destination_service:
-            client_url = destination_service['clientid']+":"+ destination_service["clientsecret"]
+            client_url = destination_service.credentials['clientid']+":"+ destination_service.credentials["clientsecret"]
             basic_auth_header = 'Basic ' + base64.b64encode(client_url.encode()).decode()
             self.ODATA_HEADERS = {'Authorization': basic_auth_header}
             r = requests.get(destination_service.credentials["uri"] + '/destination-configuration/v1/destinations/' + destination_name, headers=self.ODATA_HEADERS)
@@ -68,7 +68,8 @@ class AppConfig:
             #get the details of auth
             destination = r.json()
             self.ODATA_ENDPOINT = destination["destinationConfiguration"]["URL"] + "/secure/"
-
+        else:
+            raise ValueError("Desination Service Not Found. Please Check your Configurations")
 
     def _load_common_env(self):
         # Common SAP GPT Details
